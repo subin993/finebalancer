@@ -604,8 +604,8 @@ UeManager::ScheduleRrcConnectionRecursive(){
     LteRrcSap::RrcConnectionReconfiguration msg = BuildRrcConnectionReconfiguration ();
     m_rrc->m_rrcSapUser->SendRrcConnectionReconfiguration (m_rnti, msg);
     
-    //Seconds(interval) 
-    Simulator::Schedule(Seconds(0.001), &UeManager::ScheduleRrcConnectionRecursive, this);
+    // //Seconds(interval) 
+    // Simulator::Schedule(Seconds(0.001), &UeManager::ScheduleRrcConnectionRecursive, this);
   }
 }
 
@@ -635,7 +635,7 @@ UeManager::ScheduleRrcConnectionReconfiguration ()
         m_rrc->m_rrcSapUser->SendRrcConnectionReconfiguration (m_rnti, msg);
         RecordDataRadioBearersToBeStarted ();
         SwitchToState (CONNECTION_RECONFIGURATION);
-        ScheduleRrcConnectionRecursive();
+        // ScheduleRrcConnectionRecursive();
       }
       break;
 
@@ -2614,6 +2614,11 @@ LteEnbRrc::HandoverLeavingTimeout (uint16_t rnti)
    * with the UE and also delete UE context at the source eNB and bearer
    * info at SGW and PGW.
    */
+
+  //
+  // std::cout<<"Checking*******"<<std::endl;
+  //
+
   Ptr<UeManager> ueManger = GetUeManager (rnti);
   EpcX2Sap::HandoverCancelParams msg = ueManger->BuildHoCancelMsg ();
   m_x2SapProvider->SendHandoverCancel (msg);

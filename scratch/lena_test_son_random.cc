@@ -150,8 +150,8 @@ main (int argc, char *argv[])
   // LogComponentEnable ("A2A4RsrqHandoverAlgorithm", logLevel);
   // LogComponentEnable ("A3RsrpHandoverAlgorithm", logLevel);
 
-  uint16_t numberOfUes = 40;
-  uint16_t numberOfEnbs = 5;
+  uint16_t numberOfUes = 10;
+  uint16_t numberOfEnbs = 3;
   uint16_t numBearersPerUe = 1;
   bool disableDl = false;
   bool disableUl = false;
@@ -164,7 +164,7 @@ main (int argc, char *argv[])
   uint16_t macroEnbBandwidth = 50;
 
   //opengym environment
-  uint32_t openGymPort = 1122;
+  uint32_t openGymPort = 1130;
 
   // change some default attributes so that they are reasonable for
   // this scenario, but do this before processing command line
@@ -215,7 +215,7 @@ main (int argc, char *argv[])
 
   // Create the Internet
   PointToPointHelper p2ph;
-  p2ph.SetDeviceAttribute ("DataRate", DataRateValue (DataRate ("100Gb/s")));
+  p2ph.SetDeviceAttribute ("DataRate", DataRateValue (DataRate ("100Mb/s")));
   p2ph.SetDeviceAttribute ("Mtu", UintegerValue (1500));
   p2ph.SetChannelAttribute ("Delay", TimeValue (Seconds (0.010)));
   NetDeviceContainer internetDevices = p2ph.Install (pgw, remoteHost);
@@ -298,18 +298,18 @@ main (int argc, char *argv[])
   Ptr<RandomRectanglePositionAllocator> allocator = CreateObject<RandomRectanglePositionAllocator> ();
   Ptr<UniformRandomVariable> xPos = CreateObject<UniformRandomVariable> ();
   xPos->SetAttribute ("Min", DoubleValue (0.0));
-  xPos->SetAttribute ("Max", DoubleValue (400.0));
+  xPos->SetAttribute ("Max", DoubleValue (450.0));
   allocator->SetX (xPos);
   Ptr<UniformRandomVariable> yPos = CreateObject<UniformRandomVariable> ();
   yPos->SetAttribute ("Min", DoubleValue (0.0));
-  yPos->SetAttribute ("Max", DoubleValue (350.0));
+  yPos->SetAttribute ("Max", DoubleValue (450.0));
   allocator->SetY (yPos);
   allocator->AssignStreams (1);
   ueMobility.SetPositionAllocator (allocator);
   ueMobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
-                             "Bounds", RectangleValue (Rectangle (0, 400, 0, 400)),
-                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=3]"),
-                             "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.2]"));
+                             "Bounds", RectangleValue (Rectangle (0, 450, 0, 450)),
+                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=50]"),
+                             "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.1]"));
   ueMobility.Install (ueNodes);
 
   //To Check UE's Position
@@ -371,7 +371,7 @@ main (int argc, char *argv[])
   uint16_t dlPort = 10000;
   uint16_t ulPort = 20000;
 
-  DataRateValue dataRateValue = DataRate ("18.6Mbps");
+  DataRateValue dataRateValue = DataRate ("100Mbps");
 
   // No use
   uint64_t bitRate = dataRateValue.Get ().GetBitRate ();
@@ -491,18 +491,18 @@ main (int argc, char *argv[])
     }
 
   // connect custom trace sinks for RRC connection establishment and handover notification
-  Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/ConnectionEstablished",
-                   MakeCallback (&NotifyConnectionEstablishedEnb));
-  Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/ConnectionEstablished",
-                   MakeCallback (&NotifyConnectionEstablishedUe));
-  Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/HandoverStart",
-                   MakeCallback (&NotifyHandoverStartEnb));
-  Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/HandoverStart",
-                   MakeCallback (&NotifyHandoverStartUe));
-  Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/HandoverEndOk",
-                   MakeCallback (&NotifyHandoverEndOkEnb));
-  Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/HandoverEndOk",
-                   MakeCallback (&NotifyHandoverEndOkUe));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/ConnectionEstablished",
+  //                  MakeCallback (&NotifyConnectionEstablishedEnb));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/ConnectionEstablished",
+  //                  MakeCallback (&NotifyConnectionEstablishedUe));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/HandoverStart",
+  //                  MakeCallback (&NotifyHandoverStartEnb));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/HandoverStart",
+  //                  MakeCallback (&NotifyHandoverStartUe));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/HandoverEndOk",
+  //                  MakeCallback (&NotifyHandoverEndOkEnb));
+  // Config::Connect ("/NodeList/*/DeviceList/*/LteUeRrc/HandoverEndOk",
+  //                  MakeCallback (&NotifyHandoverEndOkUe));
 
 
   Simulator::Stop (Seconds (simTime));

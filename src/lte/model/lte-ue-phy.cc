@@ -890,7 +890,7 @@ LteUePhy::CreateDlCqiFeedbackMessage (const SpectrumValue& sinr)
       //NS_LOG_DEBUG (this << " Generate P10 CQI feedback " << (uint16_t) cqiSum / activeSubChannels);
       // NS_LOG_UNCOND (this << " Generate P10 CQI feedback " << (uint16_t) cqiSum / activeSubChannels);
       
-      SinrDb_mro = (double) cqiSum / activeSubChannels;
+      // SinrDb_mro = (double) cqiSum / activeSubChannels;
       dlcqi.m_wbPmi = 0; // not yet used
       // dl.cqi.m_sbMeasResult others CQI report modes: not yet implemented
     }
@@ -1582,8 +1582,8 @@ LteUePhy::InitializeRlfParams ()
   m_downlinkInSync = true;
 }
 
-int RlfCounter = 0;
-int RlfDetection_count = 0;
+// int RlfCounter = 0;
+// int RlfDetection_count = 0;
 
 // double
 // LteUePhy::GetSinr (const SpectrumValue& sinr){
@@ -1592,6 +1592,35 @@ int RlfDetection_count = 0;
 //   double SinrDb_mro = 10 * log10 (avrgSinrForRlf);
 //   return SinrDb_mro;
 // }
+
+// New Part for RLF
+// std::map<uint16_t, int>
+// LteUePhy::GetTooLateHO_CNT(void)
+// {
+//   return MRO_TooLateHO_CNT;
+// }
+// std::map<uint16_t, int>
+// LteUePhy::GetTooEarlyHO_CNT(void)
+// {
+//   return MRO_TooEarlyHO_CNT;
+// }
+// std::map<uint16_t, int>
+// LteUePhy::GetWrongCellHO_CNT(void)
+// {
+//   return MRO_WrongCellHO_CNT;
+// }
+
+std::map<uint16_t, int>
+LteUePhy::GetRlfCounter(void)
+{
+  return RlfCounter;
+}
+void
+LteUePhy::ClearRlfCounter(void)
+{
+  RlfCounter.clear();
+}
+////////////////////////////
 
 void
 LteUePhy::RlfDetection (double sinrDb)
@@ -1602,19 +1631,103 @@ LteUePhy::RlfDetection (double sinrDb)
   m_numOfSubframes++;
   NS_LOG_LOGIC ("No of Subframes: " << m_numOfSubframes << " UE synchronized: " << m_downlinkInSync);
   
-//New Part for MRO
-  SinrDb_mro = sinrDb;
-//
+// New Part for MRO
+//   SinrDb_mro = sinrDb;
+// //
 
-  if (RlfDetection_count == 6401) 
+//   if (RlfDetection_count == 6401) 
+//   {
+//     std::cout << Simulator::Now ().GetSeconds () << " " << "**********imsi : " << m_imsi << " **********sinrDb : " << sinrDb << std::endl;
+//     RlfDetection_count = 0;
+//   }
+//   if (sinrDb < -5) {
+//     RlfCounter = RlfCounter + 1;
+//     // std::cout << "RlfCounter : " << RlfCounter << "***********************" << std::endl;
+//   }
+
+  // New Part for RLF
+
+  // For TooLateHO
+  // 언제든 SINR이 Threshold1보다 낮아졌으면 RLF Case1로 판단
+  if (sinrDb < Threshold_1){
+    // ++MRO_TooLateHO_CNT;
+
+    if(RlfCounter.find(m_cellId) != RlfCounter.end()){
+      RlfCounter[m_cellId] -= 1;
+    }
+    else{
+      RlfCounter.insert({m_cellId, -1});
+    }
+  }
+
+  // For TooEarlyHO & WrongCellHO
+  // Check HO Occured
+  if(m_rnti != m_PreviousRnti){
+    HandoverOccured = true;
+    duration = 0;
+  }
+  else{
+    ++duration;
+    // UE Measurement 측정 주기(200ms) 두번 동안 RLF가 발생하지 않으면 핸드오버 직후 문제가 생기지 않은 것으로 판단
+    if (duration == 400){ //400 = 400ms
+      HandoverOccured = false;
+      m_PreviousCellId = m_cellId;
+      duration = 0;
+    } 
+  }
+  m_PreviousRnti = m_rnti;
+
+  // Execute only one
+  // 처음에는 핸드오버 이전 셀이라는 것이 존재하지 않으므로 이전셀을 현재셀로 설정
+  if (m_RlfDetection_Counter == 0){
+    m_PreviousCellId = m_cellId;
+  }
+  m_RlfDetection_Counter += 1;
+
+  // Find Best Cell
+  if (m_RlfDetection_Counter == 201) // 200 = 200ms, UE Measurement 측정 주기가 200ms
   {
-    std::cout << Simulator::Now ().GetSeconds () << " " << "**********imsi : " << m_imsi << " **********sinrDb : " << sinrDb << std::endl;
-    RlfDetection_count = 0;
+    if (HandoverOccured = true){
+      std::map <uint16_t, UeMeasurementsElement>::iterator it;
+      for (it = m_ueMeasurementsMap.begin (); it != m_ueMeasurementsMap.end(); it++){
+        double avg_rsrp = (*it).second.rsrpSum / (double)(*it).second.rsrpNum;
+        if(avg_rsrp > max_rsrp){
+          max_rsrp = avg_rsrp;
+          max_cellId = (*it).first;
+        }
+      }
+      max_rsrp = -140.0;
+      // Check Pour SinrDb
+      if(sinrDb < Threshold_2){
+        // Check TooEarlyHO
+        // 핸드오버 직후 최적 셀이 이전 셀이라면 TooEarlyHO로 판단
+        if (max_cellId == m_PreviousCellId){
+          // ++MRO_TooEarlyHO_CNT
+
+          if (RlfCounter.find(m_PreviousCellId) != RlfCounter.end()){
+            RlfCounter[m_PreviousCellId] -= 1;
+          }
+          else{
+            RlfCounter.insert({m_PreviousCellId, -1});
+          }
+        }
+        // Check WorngCellHO
+        // 핸드오버 직후 최적 셀이 현재 셀도, 이전 셀도 아니라면 WrongCellHO로 판단
+        else if (max_cellId != m_cellId){
+          // ++MRO_WrongCellHO_CNT
+
+          if (RlfCounter.find(max_cellId) != RlfCounter.end()){
+            RlfCounter[max_cellId] += 1;
+          }
+          else{
+            RlfCounter.insert({max_cellId, 1});
+          }
+        }
+      }
+    }
+    m_RlfDetection_Counter = 0;
   }
-  if (sinrDb < -5) {
-    RlfCounter = RlfCounter + 1;
-    // std::cout << "RlfCounter : " << RlfCounter << "***********************" << std::endl;
-  }
+  ////////////////////////////
 
   //check for out_of_snyc indications first when UE is both DL and UL synchronized
   //m_downlinkInSync=true indicates that the evaluation is for out-of-sync indications

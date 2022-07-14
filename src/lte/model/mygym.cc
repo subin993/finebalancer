@@ -34,6 +34,7 @@
 #include <iostream>
 
 #include <ns3/lte-common.h>
+#include "ns3/lte-enb-rrc.h"
 
 #include <ns3/cell-individual-offset.h>
 
@@ -130,7 +131,12 @@ namespace ns3 {
             uint32_t nodeNum = m_enbs.size();
             std::vector<uint32_t> shape {nodeNum,};
             std::string dtype = TypeNameGet<int32_t> ();
-            Ptr<OpenGymBoxSpace> space = CreateObject<OpenGymBoxSpace> (-3, 3, shape, dtype); //todo range change for -30 to 30
+
+            // 범위를 -30~30으로 하였는데 이전에 범위를 늘리면 0으로 변경되버렸던 오류가 어떤 부분이였는지 기억x
+            // lte-rrc-header.cc 에서의 qOffsetRange 확인.
+            Ptr<OpenGymBoxSpace> space = CreateObject<OpenGymBoxSpace> (-24, 24, shape, dtype); //todo range change for -30 to 30
+            
+            
             // Ptr<OpenGymBoxSpace> box = CreateObject<OpenGymBoxSpace> (0, 0, shape, dtype); //todo range change for -30 to 30
             // Ptr<OpenGymDictSpace> space = CreateObject<OpenGymDictSpace> ();
 
@@ -242,8 +248,9 @@ namespace ns3 {
                 normalizedRBUtil = float(m_rbUtil.at(idx)) / m_nRBTotal ;
                 box -> AddValue(normalizedRBUtil);
                 //To see normalized RB util
-                std::cout<<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
+                std::cout << "eNB  "<< (idx+1) << "  " <<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
             }
+            std::cout<<"**************************************"<<std::endl;
             obsContainer -> Add("rbUtil", box);
 
             //report other reward functions 
@@ -251,6 +258,40 @@ namespace ns3 {
             box = CreateObject < OpenGymBoxContainer < float > > (shape);
             box -> SetData(rewards);
             obsContainer -> Add("rewards", box);
+
+            // 핸드오버 작동하고 있는지 확인하려고 만든 부분
+            // 현재 각 eNB에 붙어있는 UE 수를 출력
+            uint32_t enbIdx = 1;
+            for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
+                std::cout<<"eNB "<<enbIdx<<"  : "<<iter->second->GetRrc ()->m_numofues<< " UEs " <<std::endl;
+                enbIdx ++;
+            }
+
+            //RLF Test
+            ////////////////////////
+            std::map<uint16_t,int> RlfCounter;
+            for (std::map<uint64_t, Ptr<LteUeNetDevice>>::iterator iter = m_ues.begin(); iter != m_ues.end(); ++iter)
+            {
+                // std::cout<<"Test1 : "<<RlfCounter.size()<<std::endl;
+                std::map<uint16_t,int> RlfCounterperUe = iter->second->GetPhy()->GetRlfCounter();
+                iter->second->GetPhy()->ClearRlfCounter();
+            for (auto iter2 =RlfCounterperUe.begin();iter2!=RlfCounterperUe.end();iter2++)
+            {
+                std::cout<<"Test2"<<std::endl;
+                if(RlfCounter.count(iter2->first)){
+                    RlfCounter[iter2->first]+=iter2->second;
+                }
+                else{
+                    RlfCounter.insert({iter2->first,iter2->second});
+                }
+                std::cout<<"Size : "<<RlfCounter.size()<<std::endl;
+            }
+            }
+            for (auto iter3 = RlfCounter.begin(); iter3 != RlfCounter.end(); iter3++)
+            {
+                std::cout<<"CellId : "<<iter3->first<<"   "<<"Counter : "<<iter3->second<<std::endl;
+            }
+            ////////////////////////
 
             // NS_LOG_LOGIC("MyGetObservation: " << obsContainer);
 
@@ -438,15 +479,26 @@ namespace ns3 {
         Ptr<OpenGymBoxContainer<int32_t> > box = DynamicCast<OpenGymBoxContainer<int32_t>>(action);
 
         uint32_t nodeNum = m_enbs.size();
+
+        // Action이 c++ 쪽에서 잘 받아졌는지 확인하려고 작성한 부분
+        // for(uint32_t i = 0; i<nodeNum; i++){
+        //     std::cout<< "eNB " << i << " action : "<< box->GetValue(i)<<std::endl;
+        // }
+
         std::list<LteRrcSap::CellsToAddMod> celllist_temp;
+        
+        //
         // std::cout<<"ExecuteActions: ";
+
         for(uint32_t i = 0; i < nodeNum; i++){
             LteRrcSap::CellsToAddMod cell_temp;
             cell_temp.cellIndex = i+1;
             cell_temp.physCellId = 0;
             cell_temp.cellIndividualOffset = box->GetValue(i);
             celllist_temp.push_back(cell_temp);
-            std::cout<<box->GetValue(i);
+            
+            // std::cout<<box->GetValue(i);
+
         }
         for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
             iter->second->m_rrc->setCellstoAddModList(celllist_temp);

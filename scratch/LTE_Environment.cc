@@ -42,6 +42,7 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MyLTENetwork");
 
+
 uint32_t RunNum;
 uint32_t nEdgeUes = 8;
 uint32_t nEdgeUes2 = 8;
@@ -105,7 +106,7 @@ static ns3::GlobalValue g_nMacroEnbSites("nMacroEnbSites",
     ns3::MakeUintegerChecker < uint32_t > ());
 static ns3::GlobalValue g_interSiteDistance("interSiteDistance",
     "min distance between two nearby macro cell sites",
-    ns3::DoubleValue(500),
+    ns3::DoubleValue(200),
     ns3::MakeDoubleChecker < double > ());
 static ns3::GlobalValue g_macroEnbTxPowerDbm("macroEnbTxPowerDbm",
     "TX power [dBm] used by macro eNBs",
@@ -126,11 +127,11 @@ static ns3::GlobalValue g_fadingTrace("fadingTrace",
     ns3::MakeStringChecker());
 static ns3::GlobalValue g_hystersis("hysteresisCoefficient",
     "The value of hysteresis coefficient",
-    ns3::DoubleValue(3.0),
+    ns3::DoubleValue(0.0),
     ns3::MakeDoubleChecker < double > ());
 static ns3::GlobalValue g_timeToTrigger("TTT",
     "The value of time to tigger coefficient in milliseconds",
-    ns3::DoubleValue(40),
+    ns3::DoubleValue(0),
     ns3::MakeDoubleChecker < double > ());
 static ns3::GlobalValue g_cioList("cioList",
     "The CIO values arranged in a string.",
@@ -146,7 +147,7 @@ static ns3::GlobalValue g_envStepTime("envStepTime",
     ns3::MakeDoubleChecker < double > ());
 static ns3::GlobalValue g_openGymPort("openGymPort",
     "Open Gym Port Number",
-    ns3::UintegerValue(1122),
+    ns3::UintegerValue(1130),
     ns3::MakeUintegerChecker < uint16_t > ());
 static ns3::GlobalValue g_outputTraceFiles("outputTraceFiles",
     "If true, trace files will be output in ns3 working directory. "
@@ -312,7 +313,7 @@ int main(int argc, char * argv[]) {
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.SetPositionAllocator(enbPositionAlloc);
     mobility.Install(macroEnbs);
-    NetDeviceContainer macroEnbDevs = lteHelper -> InstallEnbDevice(macroEnbs);
+    NetDeviceContainer macroEnbDevs = lteHelper -> InstallEnbDevice(macroEnbs, myGymEnv);
 
     std::vector < Vector > eNBsLocation;
     Vector tempLocation;
@@ -332,23 +333,25 @@ int main(int argc, char * argv[]) {
     MobilityHelper EdgeUesMobility;
     int64_t m_streamIndex1 = 0;
     ObjectFactory pos1;
+    // Edge UEs 1의 처음 위치 지정
     pos1.SetTypeId("ns3::RandomBoxPositionAllocator");
-    pos1.Set("X", StringValue("ns3::UniformRandomVariable[Min=20.0|Max=150.0]"));
+    pos1.Set("X", StringValue("ns3::UniformRandomVariable[Min=10.0|Max=190.0]"));
     pos1.Set("Y", StringValue("ns3::UniformRandomVariable[Min=-25.0|Max=25.0]"));
     pos1.Set("Z", StringValue("ns3::UniformRandomVariable[Min=1.5|Max=2.0]"));
 
     Ptr < PositionAllocator > taPositionAlloc1 = pos1.Create() -> GetObject < PositionAllocator > ();
     m_streamIndex1 += taPositionAlloc1 -> AssignStreams(m_streamIndex1);
 
+    // Edge UEs 1의 모빌리티 지정
     EdgeUesMobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
         "Mode", StringValue("Time"),
         "Time", StringValue("0.2s"),
-        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=3.0]"),
-        "Bounds", StringValue("10|300|-25|25"));
+        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=30.0]"),
+        "Bounds", StringValue("10|190|-25|25"));
     EdgeUesMobility.SetPositionAllocator(taPositionAlloc1);
     EdgeUesMobility.Install(EdgeUes);
     m_streamIndex1 += EdgeUesMobility.AssignStreams(EdgeUes, m_streamIndex1);
-    NetDeviceContainer EdgeUeDevs = lteHelper -> InstallUeDevice(EdgeUes);
+    NetDeviceContainer EdgeUeDevs = lteHelper -> InstallUeDevice(EdgeUes,myGymEnv);
 
     for (uint32_t it = 0; it != EdgeUes.GetN(); ++it) {
         Ptr < Node > node = EdgeUes.Get(it);
@@ -365,19 +368,21 @@ int main(int argc, char * argv[]) {
 
     int64_t m_streamIndex2 = 0;
     ObjectFactory pos2;
+    // Edge UEs 2의 처음 위치 지정
     pos2.SetTypeId("ns3::RandomBoxPositionAllocator");
-    pos2.Set("X", StringValue("ns3::UniformRandomVariable[Min=700.0|Max=900.0]"));
+    pos2.Set("X", StringValue("ns3::UniformRandomVariable[Min=510.0|Max=790.0]"));
     pos2.Set("Y", StringValue("ns3::UniformRandomVariable[Min=-25.0|Max=25.0]"));
     pos2.Set("Z", StringValue("ns3::UniformRandomVariable[Min=1.5|Max=2.0]"));
 
     Ptr < PositionAllocator > taPositionAlloc2 = pos2.Create() -> GetObject < PositionAllocator > ();
     m_streamIndex2 += taPositionAlloc2 -> AssignStreams(m_streamIndex2);
 
+    // Edge UEs 2의 모빌리티 지정
     EdgeUesMobility2.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
         "Mode", StringValue("Time"),
         "Time", StringValue("0.2s"),
-        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=3.0]"),
-        "Bounds", StringValue("600|990|-25|25"));
+        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=30.0]"),
+        "Bounds", StringValue("510|790|-25|25"));
     EdgeUesMobility2.SetPositionAllocator(taPositionAlloc2);
     EdgeUesMobility2.Install(EdgeUes2);
     m_streamIndex2 += EdgeUesMobility2.AssignStreams(EdgeUes2, m_streamIndex2);
@@ -402,19 +407,21 @@ int main(int argc, char * argv[]) {
 
     int64_t m_streamIndex = 0;
     ObjectFactory pos;
+    // Center UEs의 처음 위치 지정
     pos.SetTypeId("ns3::RandomBoxPositionAllocator");
-    pos.Set("X", StringValue("ns3::UniformRandomVariable[Min=450.0|Max=550.0]"));
+    pos.Set("X", StringValue("ns3::UniformRandomVariable[Min=250.0|Max=550.0]"));
     pos.Set("Y", StringValue("ns3::UniformRandomVariable[Min=-25.0|Max=25.0]"));
     pos.Set("Z", StringValue("ns3::UniformRandomVariable[Min=1.5|Max=2.0]"));
 
     Ptr < PositionAllocator > taPositionAlloc = pos.Create() -> GetObject < PositionAllocator > ();
     m_streamIndex += taPositionAlloc -> AssignStreams(m_streamIndex);
 
+    // Center UEs의 모빌리티 지정
     ueMobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
         "Mode", StringValue("Time"),
         "Time", StringValue("0.2s"),
-        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=3.0]"),
-        "Bounds", StringValue("450|550|-50|50"));
+        "Speed", StringValue("ns3::ConstantRandomVariable[Constant=30.0]"),
+        "Bounds", StringValue("250|550|-25|25"));
     ueMobility.SetPositionAllocator(taPositionAlloc);
     ueMobility.Install(CenterUes);
     m_streamIndex += ueMobility.AssignStreams(CenterUes, m_streamIndex);
@@ -616,9 +623,9 @@ int main(int argc, char * argv[]) {
 
     Simulator::Run();
 
-    lteHelper = 0;
+    // lteHelper = 0;
 
-    myGymEnv -> NotifySimulationEnd();
+    // myGymEnv -> NotifySimulationEnd();
     Simulator::Destroy();
 
     return 0;

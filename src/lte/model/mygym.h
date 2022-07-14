@@ -36,7 +36,10 @@
 #include "ns3/lte-enb-rrc.h"
 
 #include "ns3/lte-ue-net-device.h"
+#include "ns3/lte-ue-rrc.h"
 
+#include "ns3/nstime.h"
+#include "ns3/ff-mac-scheduler.h"
 namespace ns3 {
 
     class MyGymEnv: public OpenGymEnv {

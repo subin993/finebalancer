@@ -33,6 +33,7 @@
 #include "ns3/ff-mac-scheduler.h"
 #include <vector>
 #include <map>
+#include "ns3/mygym.h"
 
 namespace ns3 {
 
