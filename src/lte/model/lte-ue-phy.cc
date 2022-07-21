@@ -1594,21 +1594,21 @@ LteUePhy::InitializeRlfParams ()
 // }
 
 // New Part for RLF
-// std::map<uint16_t, int>
-// LteUePhy::GetTooLateHO_CNT(void)
-// {
-//   return MRO_TooLateHO_CNT;
-// }
-// std::map<uint16_t, int>
-// LteUePhy::GetTooEarlyHO_CNT(void)
-// {
-//   return MRO_TooEarlyHO_CNT;
-// }
-// std::map<uint16_t, int>
-// LteUePhy::GetWrongCellHO_CNT(void)
-// {
-//   return MRO_WrongCellHO_CNT;
-// }
+int
+LteUePhy::GetTooLateHO_CNT(void)
+{
+  return MRO_TooLateHO_CNT;
+}
+int
+LteUePhy::GetTooEarlyHO_CNT(void)
+{
+  return MRO_TooEarlyHO_CNT;
+}
+int
+LteUePhy::GetWrongCellHO_CNT(void)
+{
+  return MRO_WrongCellHO_CNT;
+}
 
 std::map<uint16_t, int>
 LteUePhy::GetRlfCounter(void)
@@ -1650,7 +1650,7 @@ LteUePhy::RlfDetection (double sinrDb)
   // For TooLateHO
   // 언제든 SINR이 Threshold1보다 낮아졌으면 RLF Case1로 판단
   if (sinrDb < Threshold_1){
-    // ++MRO_TooLateHO_CNT;
+    ++MRO_TooLateHO_CNT;
 
     if(RlfCounter.find(m_cellId) != RlfCounter.end()){
       RlfCounter[m_cellId] -= 1;
@@ -1702,7 +1702,7 @@ LteUePhy::RlfDetection (double sinrDb)
         // Check TooEarlyHO
         // 핸드오버 직후 최적 셀이 이전 셀이라면 TooEarlyHO로 판단
         if (max_cellId == m_PreviousCellId){
-          // ++MRO_TooEarlyHO_CNT
+          ++MRO_TooEarlyHO_CNT;
 
           if (RlfCounter.find(m_PreviousCellId) != RlfCounter.end()){
             RlfCounter[m_PreviousCellId] -= 1;
@@ -1714,7 +1714,7 @@ LteUePhy::RlfDetection (double sinrDb)
         // Check WorngCellHO
         // 핸드오버 직후 최적 셀이 현재 셀도, 이전 셀도 아니라면 WrongCellHO로 판단
         else if (max_cellId != m_cellId){
-          // ++MRO_WrongCellHO_CNT
+          ++MRO_WrongCellHO_CNT;
 
           if (RlfCounter.find(max_cellId) != RlfCounter.end()){
             RlfCounter[max_cellId] += 1;

@@ -248,9 +248,9 @@ namespace ns3 {
                 normalizedRBUtil = float(m_rbUtil.at(idx)) / m_nRBTotal ;
                 box -> AddValue(normalizedRBUtil);
                 //To see normalized RB util
-                std::cout << "eNB  "<< (idx+1) << "  " <<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
+                std::cout << "eNB "<< (idx+1) << ": " <<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
             }
-            std::cout<<"**************************************"<<std::endl;
+            // std::cout<<"**************************************"<<std::endl;
             obsContainer -> Add("rbUtil", box);
 
             //report other reward functions 
@@ -259,38 +259,104 @@ namespace ns3 {
             box -> SetData(rewards);
             obsContainer -> Add("rewards", box);
 
-            // 핸드오버 작동하고 있는지 확인하려고 만든 부분
+            // 핸드오버 작동하고 있는지 확인하려고 만든 부분 (없어도 상관 X)
             // 현재 각 eNB에 붙어있는 UE 수를 출력
             uint32_t enbIdx = 1;
             for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
-                std::cout<<"eNB "<<enbIdx<<"  : "<<iter->second->GetRrc ()->m_numofues<< " UEs " <<std::endl;
+                std::cout<<"eNB "<<enbIdx<<": "<<iter->second->GetRrc ()->m_numofues<< " UEs " <<std::endl;
                 enbIdx ++;
             }
-
-            //RLF Test
+            
+            // UE-eNB distance Test
+            // 현재 step에서 각 eNB별 붙어있는 UE과의 평균 거리 출력 가능, vector로 담아서 observation으로 보내면 DQN에서도 사용 가능
+            // 사용 형태는 아직 생각 필요
             ////////////////////////
-            std::map<uint16_t,int> RlfCounter;
+            for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
+                uint32_t CellId = iter->first;
+                std::vector<uint64_t> Imsi_List;
+                // eNB 별로 for문을 돌리며 각 for문마다 먼저 eNB의 position 계산
+                double eNB_x = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().x;
+                double eNB_y = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().y;
+                double eNB_z = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().z;
+
+                // eNB의 RRC 계층에 있는 붙어있는 UE들의 정보가 들어있는 m_ueMap을 UeMap이라는 parameter로 가져옴
+                std::map<uint16_t, Ptr<UeManager>> UeMap = iter->second->GetRrc ()->m_ueMap;
+                
+                // UeMap에 대해서 for문을 돌리면서 eNB에 붙어있는 UE들의 IMSI를 Imsi_List에 모음
+                for (std::map<uint16_t, Ptr<UeManager>>::iterator iter2 = UeMap.begin(); iter2 != UeMap.end(); ++iter2){
+                    uint64_t Imsi = iter2->second->GetImsi();
+                    Imsi_List.push_back(Imsi);
+                    // std::cout<<"Cell Id :"<<CellId<<"  "<<"Imsi : "<<Imsi<<std::endl;
+                }
+
+                double distance_sum = 0;
+
+                // Imsi_List에 대해서 for문을 돌리면서 해당 Imsi를 가지는 UE의 position을 가져와서 eNB와의 distance를 구한다
+                // 구한 distance는 distance_sum에 더한 후 이후 붙어있는 총 UE수와 나누어서 평균 distance를 측정
+                for (uint64_t i=0; i<Imsi_List.size(); i++){
+                    Ptr<LteUeNetDevice> UeNetDevice = m_ues[Imsi_List[i]];
+                    double Ue_x = UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition().x;
+                    double Ue_y = UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition().y;
+                    double Ue_z = UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition().z;
+
+                    double distance = sqrt( pow(eNB_x-Ue_x, 2) + pow(eNB_y-Ue_y, 2) + pow(eNB_z-Ue_z, 2) );
+                    distance_sum += distance;
+                    // std::cout<<"eNB : "<<CellId<<"  "<<"UE Poistion : "<<UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition()<<std::endl;
+                }
+
+                // 해당 eNB에서 붙어있는 UE들과의 평균 거리
+                double distance_avg = distance_sum / Imsi_List.size();
+                std::cout<<"eNB "<<CellId<<": "<<"Average Distance : "<<distance_avg<<std::endl;
+            }
+            std::cout<<"**************************************"<<std::endl;
+            ////////////////////////
+            
+            // RLF Counter Test
+            // MRO Case에 따른 Counter 출력을 위한 부분
+            ////////////////////////
+            int Case1_Counter = 0;
+            int Case2_Counter = 0;
+            int Case3_Counter = 0;
             for (std::map<uint64_t, Ptr<LteUeNetDevice>>::iterator iter = m_ues.begin(); iter != m_ues.end(); ++iter)
             {
-                // std::cout<<"Test1 : "<<RlfCounter.size()<<std::endl;
-                std::map<uint16_t,int> RlfCounterperUe = iter->second->GetPhy()->GetRlfCounter();
-                iter->second->GetPhy()->ClearRlfCounter();
-            for (auto iter2 =RlfCounterperUe.begin();iter2!=RlfCounterperUe.end();iter2++)
-            {
-                std::cout<<"Test2"<<std::endl;
-                if(RlfCounter.count(iter2->first)){
-                    RlfCounter[iter2->first]+=iter2->second;
-                }
-                else{
-                    RlfCounter.insert({iter2->first,iter2->second});
-                }
-                std::cout<<"Size : "<<RlfCounter.size()<<std::endl;
+                int Counter1 = iter->second->GetPhy()->GetTooLateHO_CNT();
+                int Counter2 = iter->second->GetPhy()->GetTooEarlyHO_CNT();
+                int Counter3 = iter->second->GetPhy()->GetWrongCellHO_CNT();
+                Case1_Counter += Counter1;
+                Case2_Counter += Counter2;
+                Case3_Counter += Counter3;
             }
-            }
-            for (auto iter3 = RlfCounter.begin(); iter3 != RlfCounter.end(); iter3++)
-            {
-                std::cout<<"CellId : "<<iter3->first<<"   "<<"Counter : "<<iter3->second<<std::endl;
-            }
+            std::cout<<"MRO Case1 Counter: "<<Case1_Counter<<std::endl;
+            std::cout<<"MRO Case2 Counter: "<<Case2_Counter<<std::endl;
+            std::cout<<"MRO Case3 Counter: "<<Case3_Counter<<std::endl;
+            std::cout<<"**************************************"<<std::endl;
+            ////////////////////////
+
+            // RLF Test
+            // MRO 기능을 위한 부분 (현재는 사용 안하고 있어서 주석처리)
+            ////////////////////////
+            // std::map<uint16_t,int> RlfCounter;
+            // for (std::map<uint64_t, Ptr<LteUeNetDevice>>::iterator iter = m_ues.begin(); iter != m_ues.end(); ++iter)
+            // {
+            //     // std::cout<<"Test1 : "<<RlfCounter.size()<<std::endl;
+            //     std::map<uint16_t,int> RlfCounterperUe = iter->second->GetPhy()->GetRlfCounter();
+            //     iter->second->GetPhy()->ClearRlfCounter();
+            // for (auto iter2 =RlfCounterperUe.begin();iter2!=RlfCounterperUe.end();iter2++)
+            // {
+            //     std::cout<<"Test2"<<std::endl;
+            //     if(RlfCounter.count(iter2->first)){
+            //         RlfCounter[iter2->first]+=iter2->second;
+            //     }
+            //     else{
+            //         RlfCounter.insert({iter2->first,iter2->second});
+            //     }
+            //     std::cout<<"Size : "<<RlfCounter.size()<<std::endl;
+            // }
+            // }
+            // for (auto iter3 = RlfCounter.begin(); iter3 != RlfCounter.end(); iter3++)
+            // {
+            //     std::cout<<"CellId : "<<iter3->first<<"   "<<"Counter : "<<iter3->second<<std::endl;
+            // }
             ////////////////////////
 
             // NS_LOG_LOGIC("MyGetObservation: " << obsContainer);

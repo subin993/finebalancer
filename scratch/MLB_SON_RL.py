@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt
 # # 사용 가능한 GPU 개수 체크
 # print(torch.cuda.device_count())
 
-EPISODES = 200
-max_env_steps = 5000  #Maximum number of steps in every episode (origianl value is 50)
-port=1130 # Should be consistent with NS-3 simulation port
+EPISODES = 5 # Original value is 200
+max_env_steps = 1000  # Maximum number of steps in every episode (origianl value is 50)
+port=1131 # Should be consistent with NS-3 simulation port
 stepTime=0.2
 startSim=0
 seed=3
@@ -32,6 +32,7 @@ simArgs = {}
 debug=True
 # cio_action = [0,0,0,0,0] # 처음 CIO Action
 cio_action = [0,0,0] # 처음 CIO Action
+action_prev = [] # 이전 action을 저장하기 위함
 
 # DQN Agent Class
 ################################################################
@@ -46,7 +47,7 @@ class DQNAgent:
         self.gamma = 0.95    # Discount rate
         self.epsilon = 1
         self.epsilon_end = 0.01
-        self.epsilon_decay = 200
+        self.epsilon_decay = 200 # 500 step일 때 epsilon = 0.09, epsilon_decay가 100이면 500 step일 때 epsilon = 0.02
         self.steps_done = 0
         self.learning_rate = 0.001
         # Creating main network & target network
@@ -79,6 +80,7 @@ class DQNAgent:
     # Selecting action by epsilon-greedy method
     def act(self, state):
         # Epsilon-greedy
+        # 이미 학습된 모델로 진행될 때는 epsilon-greedy 부분을 주석처리해버리면 될듯
         eps_threshold = self.epsilon_end + (self.epsilon - self.epsilon_end) * math.exp(-1. * self.steps_done / self.epsilon_decay)
         self.steps_done += 1
         
@@ -169,6 +171,14 @@ if __name__ == "__main__" :
     # agent4 = DQNAgent(state_size, action_size)
     # agent5 = DQNAgent(state_size, action_size)
 
+    # 이미 저장되있는 모델의 가중치를 불러오는 부분
+    # agent1.model.load_state_dict(torch.load('eNB1_Model_test_eunsok.pt'))
+    # agent1.target_model.load_state_dict(torch.load('eNB1_Model_target_test_eunsok.pt'))
+    # agent2.model.load_state_dict(torch.load('eNB2_Model_test_eunsok.pt'))
+    # agent2.target_model.load_state_dict(torch.load('eNB2_Model_target_test_eunsok.pt'))
+    # agent3.model.load_state_dict(torch.load('eNB3_Model_test_eunsok.pt'))
+    # agent3.target_model.load_state_dict(torch.load('eNB3_Model_target_test_eunsok.pt'))
+
     done = False
     # 학습을 진행할 sample 단위 : 32
     batch_size = 32
@@ -193,19 +203,40 @@ if __name__ == "__main__" :
             # C++로부터 받아온 state는 텐서 형태가 아니므로 텐서 형태 (GPU)로 변환
             state = torch.FloatTensor([state]).cuda()
 
+            # Changed part (Model을 처음 학습할 때 사용)
+            # 500 step 까지는 Rule-based로 진행하면서 학습하고 이후는 학습된 모델로 진행
+            # Rule-based의 기준은 0.7 이상 정도면 과부하된 것을 판단, 0.2 보다 작으면 해당 기지국의 CIO를 높인다
+            if (time <500):
+                action_rule = []
+                state_rule = state.squeeze().squeeze().tolist()
+                for i in range(3) :
+                    if(state_rule[i] > 0.9) : action_rule.append(int(0))
+                    elif(state_rule[i] < 0.76) : action_rule.append(int(2))
+                    else : action_rule.append(int(1))
+                action1 = torch.LongTensor([action_rule[0]]).cuda()
+                action2 = torch.LongTensor([action_rule[1]]).cuda()
+                action3 = torch.LongTensor([action_rule[2]]).cuda()
+            else :
+                # 500 step 이후로는 입실론 그리디로 진행
+                action1 = agent1.act(state)
+                action2 = agent2.act(state)
+                action3 = agent3.act(state)
+
+
+            # Original part (이미 학습시킨 Model이 있을 때 사용)
             # Agent 별로 취할 action 결정
-            action1 = agent1.act(state)
-            action2 = agent2.act(state)
-            action3 = agent3.act(state)
+            # action1 = agent1.act(state)
+            # action2 = agent2.act(state)
+            # action3 = agent3.act(state)
             # action4 = agent4.act(state)
             # action5 = agent5.act(state)
 
             ##
-            # print('action1 : ',action1)
-            # print('action2 : ',action2)
-            # print('action3 : ',action3)
-            # print('action4 : ',action4)
-            # print('action5 : ',action5)
+            print('action1 : ',action1.item())
+            print('action2 : ',action2.item())
+            print('action3 : ',action3.item())
+            # print('action4 : ',action4.item())
+            # print('action5 : ',action5.item())
 
             # 현재 결정한 action은 텐서 형태로 c++에 보낼 수 없으므로 일반적인 int 형태로 형변환
             action = []
@@ -217,11 +248,44 @@ if __name__ == "__main__" :
 
             
             # 결정한 action을 environment에 취하는 부분
+            # -6~6 사이에서만 CIO가 변화하도록 만들고 범위를 넘게 하는 액션은 CIO 조정 0 액션으로 변경
+
+            # Changed part
+            # CIO 조정을 너무 자주하는 것 같아 같은 액션을 2번 연속할 때만 CIO 조정을 하도록 변경하였다 (Action의 종류가 많아진다면 이 부분은 없어도 될듯)
+            if(time == 0) : action_prev = action
+    
             idx = 0
             for i in action :
-                if(i == 0) : cio_action[idx] -= 1
-                elif(i == 2) : cio_action[idx] += 1
+                if(i == 0) : 
+                    if(action_prev[idx] == 0) :
+                        if(cio_action[idx]>-6) : 
+                            cio_action[idx] -= 1
+                        else :
+                            action[idx] = 1
+                elif(i == 2) : 
+                    if(action_prev[idx] == 2) :
+                        if(cio_action[idx]<6) :
+                            cio_action[idx] += 1
+                        else : 
+                            action[idx] = 1
                 idx += 1
+            
+            action_prev = action
+
+            # Original part
+            # idx = 0
+            # for i in action :
+            #     if(i == 0) : 
+            #         if(cio_action[idx]>-6) : 
+            #             cio_action[idx] -= 1
+            #         else :
+            #             action[idx] = 1
+            #     elif(i == 2) : 
+            #         if(cio_action[idx]<6) :
+            #             cio_action[idx] += 1
+            #         else : 
+            #             action[idx] = 1
+            #     idx += 1
             
             ##
             print("CIO action: ", cio_action)
@@ -229,26 +293,25 @@ if __name__ == "__main__" :
             # Environment에 action을 취해서 next_state와 reward를 받는 부분
             next_state, reward, done, _ = env.step(cio_action)
             
+            # 의도치 않게 환경에서 샘플을 받아오지 못했을 때를 고려한 부분인데 제대로 작동하는 것 같지는 않다
             if next_state is None:
                 EPISODES = EPISODES+1
                 break
+            
             # Environment로 부터 받아온 next_state와 reward 형변환
             state1 = np.reshape(next_state['rbUtil'], [1,3])
             R_rewards = np.reshape(next_state['rewards'], [3,1])
             # state1 = np.reshape(next_state['rbUtil'], [1,5])
             # R_rewards = np.reshape(next_state['rewards'], [5,1])
+
             # Reward의 값이 너무 커서 target value가 무시되는 현상을 해결하기 위해 Reward에 100을 나눠주었음
             R_rewards = [j/100 for sub in R_rewards for j in sub]
             
             # 출력을 위한 부분
-            sum = 0
             index = 1
             for i in R_rewards :
-                sum = sum + i
                 print("eNB {}'s average Throughput : {} ".format(index,i))
                 index += 1
-            # reward_sum.append(sum/5)
-            print("Total average Throughput : ",sum/5)
             
             next_state = state1
 
@@ -278,13 +341,16 @@ if __name__ == "__main__" :
                 agent3.update_target_model()
                 # agent4.update_target_model()
                 # agent5.update_target_model()
+            
+            if ((time % 200 == 1)&(time != 1)) :
+                # Save Model
+                print("Save each model")
+                torch.save(agent1.model.state_dict(),'eNB1_Model_test_eunsok.pt')
+                torch.save(agent2.model.state_dict(),'eNB2_Model_test_eunsok.pt')
+                torch.save(agent3.model.state_dict(),'eNB3_Model_test_eunsok.pt')
+                torch.save(agent1.target_model.state_dict(),'eNB1_Model_target_test_eunsok.pt')
+                torch.save(agent2.target_model.state_dict(),'eNB2_Model_target_test_eunsok.pt')
+                torch.save(agent3.target_model.state_dict(),'eNB3_Model_target_test_eunsok.pt')
         
-    # Save Model
-    print("Save each model")
-    torch.save(agent1.state_dict(),'eNB1_Model.pt')
-    torch.save(agent2.state_dict(),'eNB2_Model.pt')
-    torch.save(agent3.state_dict(),'eNB3_Model.pt')
-    # torch.save(agent4.state_dict(),'eNB4_Model.pt')
-    # torch.save(agent5.state_dict(),'eNB5_Model.pt')
 ################################################################
                 

@@ -3116,30 +3116,30 @@ LteEnbRrc::AddUe (UeManager::State state, uint8_t componentCarrierId)
   //New Part for MRO ADD UE #1
   // UPDATE IMSI MRO TABLE FOR ADDUE
   //
-  Imsi_list_tmp.clear();
-  Imsi_MRO.erase(cellId);
-  for (std::map<uint16_t, Ptr<UeManager> >::iterator iter2 = m_ueMap.begin(); iter2 != m_ueMap.end(); ++ iter2){
-    uint64_t imsi_tmp = iter2->second->GetImsi();
-    Imsi_list_tmp.push_back(imsi_tmp);
-  }
-  Imsi_MRO.insert({cellId, Imsi_list_tmp});
+  // Imsi_list_tmp.clear();
+  // Imsi_MRO.erase(cellId);
+  // for (std::map<uint16_t, Ptr<UeManager> >::iterator iter2 = m_ueMap.begin(); iter2 != m_ueMap.end(); ++ iter2){
+  //   uint64_t imsi_tmp = iter2->second->GetImsi();
+  //   Imsi_list_tmp.push_back(imsi_tmp);
+  // }
+  // Imsi_MRO.insert({cellId, Imsi_list_tmp});
 
-  // CELL_ID FOR REMOVEUE UPDATE
-  cellId_temp = cellId;
+  // // CELL_ID FOR REMOVEUE UPDATE
+  // cellId_temp = cellId;
 
-  //New Part for MRO ADD UE #2
-  // UPDATE IMSI MRO TABLE FOR PRE-EXECUTED REMOVEUE FUNCTION
-  // 
-  Imsi_MRO.erase(cellId_temp);
-  uint64_t imsi_remove = 0;
-  for (uint64_t i = 0; i< Imsi_list_tmp.size(); i++) {
-    if(Imsi_list_tmp[i] == imsi_remove){
-      Imsi_list_tmp.erase(Imsi_list_tmp.begin() + i);
-      i--;
-    }
-  }
-  Imsi_list_tmp.push_back(imsi_temp);
-  Imsi_MRO.insert({cellId_temp, Imsi_list_tmp});
+  // //New Part for MRO ADD UE #2
+  // // UPDATE IMSI MRO TABLE FOR PRE-EXECUTED REMOVEUE FUNCTION
+  // // 
+  // Imsi_MRO.erase(cellId_temp);
+  // uint64_t imsi_remove = 0;
+  // for (uint64_t i = 0; i< Imsi_list_tmp.size(); i++) {
+  //   if(Imsi_list_tmp[i] == imsi_remove){
+  //     Imsi_list_tmp.erase(Imsi_list_tmp.begin() + i);
+  //     i--;
+  //   }
+  // }
+  // Imsi_list_tmp.push_back(imsi_temp);
+  // Imsi_MRO.insert({cellId_temp, Imsi_list_tmp});
 
   // // // // // // // // // // // // // // // // // // //
   return rnti;
@@ -3167,38 +3167,38 @@ LteEnbRrc::RemoveUe (uint16_t rnti)
   //NS_LOG_UNCOND("Cell ID : " << cellId << ", The nubmer of UE : "<<m_ueMap.size());
   m_numofues = m_ueMap.size() ;
 
-  //New Part for MRO REMOVE UE #1
-  // UPDATE IMSI MRO TABLE FOR PRE-EXECUTED ADDUE FUNCTION
-  //
-  uint8_t temp_componentCarrierId = it->second->GetComponentCarrierId();
-  const uint16_t temp_cellId = ComponentCarrierToCellId (temp_componentCarrierId);
+  // //New Part for MRO REMOVE UE #1
+  // // UPDATE IMSI MRO TABLE FOR PRE-EXECUTED ADDUE FUNCTION
+  // //
+  // uint8_t temp_componentCarrierId = it->second->GetComponentCarrierId();
+  // const uint16_t temp_cellId = ComponentCarrierToCellId (temp_componentCarrierId);
 
-  // Imsi_list_tmp = Imsi_MRO[temp_cellId];
+  // // Imsi_list_tmp = Imsi_MRO[temp_cellId];
+  // // Imsi_MRO.erase(temp_cellId);
+  // Imsi_MRO.erase(cellId_temp);
+  // uint64_t imsi_remove = 0;
+  // for (uint64_t i = 0; i< Imsi_list_tmp.size(); i++) {
+  //   if(Imsi_list_tmp[i] == imsi_remove){
+  //     Imsi_list_tmp.erase(Imsi_list_tmp.begin() + i);
+  //     i--;
+  //   }
+  // }
+  // Imsi_list_tmp.push_back(imsi);
+  // Imsi_MRO.insert({cellId_temp, Imsi_list_tmp});
+
+  // // CELL_ID, IMSI FOR ADDUE UPDATE
+  // cellId_temp = temp_cellId;
+  // imsi_temp = imsi;
+  // //New Part for MRO REMOVE UE #2
+  // // UPDATE IMSI MRO TABLE FOR REMOVEUE
+  // //
+  // Imsi_list_tmp.clear();
   // Imsi_MRO.erase(temp_cellId);
-  Imsi_MRO.erase(cellId_temp);
-  uint64_t imsi_remove = 0;
-  for (uint64_t i = 0; i< Imsi_list_tmp.size(); i++) {
-    if(Imsi_list_tmp[i] == imsi_remove){
-      Imsi_list_tmp.erase(Imsi_list_tmp.begin() + i);
-      i--;
-    }
-  }
-  Imsi_list_tmp.push_back(imsi);
-  Imsi_MRO.insert({cellId_temp, Imsi_list_tmp});
-
-  // CELL_ID, IMSI FOR ADDUE UPDATE
-  cellId_temp = temp_cellId;
-  imsi_temp = imsi;
-  //New Part for MRO REMOVE UE #2
-  // UPDATE IMSI MRO TABLE FOR REMOVEUE
-  //
-  Imsi_list_tmp.clear();
-  Imsi_MRO.erase(temp_cellId);
-  for (std::map<uint16_t, Ptr<UeManager> >::iterator iter2 = m_ueMap.begin(); iter2 != m_ueMap.end(); ++ iter2){
-    uint64_t imsi_tmp = iter2->second->GetImsi();
-    Imsi_list_tmp.push_back(imsi_tmp);
-  }
-  Imsi_MRO.insert({temp_cellId, Imsi_list_tmp});
+  // for (std::map<uint16_t, Ptr<UeManager> >::iterator iter2 = m_ueMap.begin(); iter2 != m_ueMap.end(); ++ iter2){
+  //   uint64_t imsi_tmp = iter2->second->GetImsi();
+  //   Imsi_list_tmp.push_back(imsi_tmp);
+  // }
+  // Imsi_MRO.insert({temp_cellId, Imsi_list_tmp});
 
   // // // // // // // // // // // // // // // // // //
 

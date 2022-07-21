@@ -150,7 +150,7 @@ main (int argc, char *argv[])
   // LogComponentEnable ("A2A4RsrqHandoverAlgorithm", logLevel);
   // LogComponentEnable ("A3RsrpHandoverAlgorithm", logLevel);
 
-  uint16_t numberOfUes = 10;
+  uint16_t numberOfUes = 20;
   uint16_t numberOfEnbs = 3;
   uint16_t numBearersPerUe = 1;
   bool disableDl = false;
@@ -161,10 +161,12 @@ main (int argc, char *argv[])
   double simTime = 10000 + (double)(numberOfEnbs + 1) * distance / speed; // 1500 m / 20 m/s = 75 secs
   double enbTxPowerDbm = 46.0;
   double steptime = 0.5;
-  uint16_t macroEnbBandwidth = 50;
+  // Valid BW options = {6, 15, 25, 50, 75, 100}
+  // uint16_t macroEnbBandwidth = 50;
+  uint16_t macroEnbBandwidth = 75;
 
   //opengym environment
-  uint32_t openGymPort = 1130;
+  uint32_t openGymPort = 1131;
 
   // change some default attributes so that they are reasonable for
   // this scenario, but do this before processing command line
@@ -298,17 +300,17 @@ main (int argc, char *argv[])
   Ptr<RandomRectanglePositionAllocator> allocator = CreateObject<RandomRectanglePositionAllocator> ();
   Ptr<UniformRandomVariable> xPos = CreateObject<UniformRandomVariable> ();
   xPos->SetAttribute ("Min", DoubleValue (0.0));
-  xPos->SetAttribute ("Max", DoubleValue (450.0));
+  xPos->SetAttribute ("Max", DoubleValue (400.0));
   allocator->SetX (xPos);
   Ptr<UniformRandomVariable> yPos = CreateObject<UniformRandomVariable> ();
   yPos->SetAttribute ("Min", DoubleValue (0.0));
-  yPos->SetAttribute ("Max", DoubleValue (450.0));
+  yPos->SetAttribute ("Max", DoubleValue (200.0));
   allocator->SetY (yPos);
   allocator->AssignStreams (1);
   ueMobility.SetPositionAllocator (allocator);
   ueMobility.SetMobilityModel ("ns3::RandomDirection2dMobilityModel",
-                             "Bounds", RectangleValue (Rectangle (0, 450, 0, 450)),
-                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=50]"),
+                             "Bounds", RectangleValue (Rectangle (0, 400, 0, 200)),
+                             "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=5]"),
                              "Pause", StringValue ("ns3::ConstantRandomVariable[Constant=0.1]"));
   ueMobility.Install (ueNodes);
 
@@ -477,7 +479,7 @@ main (int argc, char *argv[])
   // rlcStats->SetAttribute ("DlRlcOutputFilename", StringValue ("DlRlcStats_random_non_alg.txt"));
   
   // // MLB Algorithm case -> Go to "test.py and configure"
-  rlcStats->SetAttribute ("DlRlcOutputFilename", StringValue ("DlRlcStats_random_alg.txt"));
+  // rlcStats->SetAttribute ("DlRlcOutputFilename", StringValue ("DlRlcStats_random_alg.txt"));
 
   Ptr<RadioBearerStatsCalculator> pdcpStats = lteHelper->GetPdcpStats ();
   pdcpStats->SetAttribute ("EpochDuration", TimeValue (Seconds (1.0)));
@@ -487,7 +489,6 @@ main (int argc, char *argv[])
         Ptr < LteEnbNetDevice > enbNetDevice = netDevice -> GetObject < LteEnbNetDevice > ();
         Ptr < LteEnbPhy > enbPhy = enbNetDevice -> GetPhy();
         enbPhy -> TraceConnectWithoutContext("DlPhyTransmission", MakeBoundCallback( & MyGymEnv::GetPhyStats, son_server));
-
     }
 
   // connect custom trace sinks for RRC connection establishment and handover notification

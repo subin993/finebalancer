@@ -358,9 +358,9 @@ public:
   // //New Part for MRO
   // double SinrDb_mro;
 
-  // int GetTooLateHO_CNT (void);
-  // int GetTooEarlyHO_CNT (void);
-  // int GetWrongCellHO_CNT (void);
+  int GetTooLateHO_CNT (void);
+  int GetTooEarlyHO_CNT (void);
+  int GetWrongCellHO_CNT (void);
   std::map<uint16_t,int> GetRlfCounter (void) ;
   void ClearRlfCounter (void) ;
 
@@ -372,12 +372,12 @@ public:
   double max_rsrp = -140.0;
   uint16_t max_cellId = 0;
 
-  double Threshold_1 = -10; //To be changed
-  double Threshold_2 = -5; // To be changed
+  double Threshold_1 = -15; //To be changed
+  double Threshold_2 = -8; // To be changed
   std::map<uint16_t, int> RlfCounter;
-  // int MRO_TooLateHO_CNT = 0;
-  // int MRO_TooEarlyHO_CNT = 0;
-  // int MRO_WrongCellHO_CNT = 0;
+  int MRO_TooLateHO_CNT = 0;
+  int MRO_TooEarlyHO_CNT = 0;
+  int MRO_WrongCellHO_CNT = 0;
 
   //
   
