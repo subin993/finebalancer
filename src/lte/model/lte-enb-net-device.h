@@ -66,9 +66,6 @@ public:
    */
   int m_totalEnb; //NS-3 SON: for cellstoaddmod
 
-  // std::map <uint8_t, Ptr<FfMacScheduler> > GetSONList ();
-
-
   void SetTotalEnb(int totalN); //NS-3 SON: for cellstoaddmod
 
   static TypeId GetTypeId (void);
@@ -129,7 +126,6 @@ public:
    * \return the uplink bandwidth in RBs
    */
 
-  void SetMacScheduler (std::map <uint8_t, Ptr<FfMacScheduler> > ff_mac); //NS-3 SON: Set MAcScheduler -> m_ffmacscheduler will be changed
 
   uint16_t GetUlBandwidth () const;
 

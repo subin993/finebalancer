@@ -142,6 +142,7 @@ RadioBearerStatsCalculator::UlTxPdu (uint16_t cellId, uint64_t imsi, uint16_t rn
       m_ulTxPackets[p]++;
       m_ulTxData[p] += packetSize;
     }
+    ulThroughput_IMSI[imsi] = m_ulTxData[p]; //NS-3 SON
   m_pendingOutput = true;
 }
 
@@ -157,7 +158,20 @@ RadioBearerStatsCalculator::DlTxPdu (uint16_t cellId, uint64_t imsi, uint16_t rn
       m_dlTxPackets[p]++;
       m_dlTxData[p] += packetSize;
     }
+    dlThroughput_IMSI[imsi] = m_dlTxData[p]; //NS-3 SON
   m_pendingOutput = true;
+}
+
+// NS-3 SON
+std::map<uint64_t, uint32_t>
+RadioBearerStatsCalculator::GetdlThroughput_IMSI(void)
+{
+  return dlThroughput_IMSI;
+}
+std::map<uint64_t, uint32_t>
+RadioBearerStatsCalculator::GetulThroughput_IMSI(void)
+{
+  return ulThroughput_IMSI;
 }
 
 void

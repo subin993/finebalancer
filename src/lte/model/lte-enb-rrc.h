@@ -413,6 +413,12 @@ public:
     (const uint64_t imsi, const uint16_t cellId, const uint16_t rnti,
     const State oldState, const State newState);
 
+  //New Part
+  /**
+   * The `Srb0` attribute. SignalingRadioBearerInfo for SRB0.
+   */
+  Ptr<LteSignalingRadioBearerInfo> m_srb0;
+
 private:
 
   /** 
@@ -536,7 +542,7 @@ private:
   /**
    * The `Srb0` attribute. SignalingRadioBearerInfo for SRB0.
    */
-  Ptr<LteSignalingRadioBearerInfo> m_srb0;
+  // Ptr<LteSignalingRadioBearerInfo> m_srb0;
   /**
    * The `Srb1` attribute. SignalingRadioBearerInfo for SRB1.
    */
@@ -1417,13 +1423,6 @@ public:
   uint16_t m_numofues;
   ///////////////////////
 
-  // New Part for MRO
-  std::map<uint16_t,std::vector<uint64_t>> Imsi_MRO;
-  std::vector<uint64_t> Imsi_list_tmp ;
-  uint16_t cellId_temp ;
-  uint64_t imsi_temp ;
-  //
-
   std::list<LteRrcSap::CellsToAddMod> m_cellsToAddModList; //NS-3 SON:
   void setCellstoAddModList (std::list<LteRrcSap::CellsToAddMod> list_temp); //NS-3 SON
   /** 
@@ -1472,6 +1471,9 @@ public:
    * The `UeMap` attribute. List of UeManager by C-RNTI.
    */
   std::map<uint16_t, Ptr<UeManager> > m_ueMap;
+
+  // NS3-SON
+  // int RrcConnectionReEstablishmentAttemps = 0;
 
 private:
 

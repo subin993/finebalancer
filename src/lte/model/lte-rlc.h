@@ -63,6 +63,9 @@ public:
   static TypeId GetTypeId (void);
   virtual void DoDispose ();
 
+  // New Part
+  // uint32_t txbytes;
+
   /**
    *
    *

@@ -639,6 +639,14 @@ public:
    */
   Ptr<RadioBearerStatsCalculator> GetRlcStats (void);
 
+  /** 
+   * 
+   * \return the RLC stats calculator object
+   */
+  Ptr<RadioBearerStatsCalculator> GetRlcStats (Ptr<MyGymEnv> son_server); // NS-3 SON
+
+  void PutRlcStats (Ptr<RadioBearerStatsCalculator> m_rlcStats, Ptr<MyGymEnv> son_server); // NS-3 SON
+
   /**
    * Enable trace sinks for PDCP layer
    */

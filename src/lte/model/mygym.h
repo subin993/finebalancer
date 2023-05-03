@@ -37,6 +37,7 @@
 
 #include "ns3/lte-ue-net-device.h"
 #include "ns3/lte-ue-rrc.h"
+#include "ns3/radio-bearer-stats-calculator.h"
 
 #include "ns3/nstime.h"
 #include "ns3/ff-mac-scheduler.h"
@@ -63,6 +64,8 @@ namespace ns3 {
             static void GetNumofUEs(Ptr < MyGymEnv > gymEnv, uint16_t CellDec, uint16_t CellInc, uint16_t CellInc_Ues);
             void AddNewNode(uint16_t cellId, Ptr<LteEnbNetDevice> dev);
             void AddNewUe(uint64_t imsi, Ptr<LteUeNetDevice> dev);
+            
+            void GetRlcStats(Ptr<RadioBearerStatsCalculator> m_rlcStats); // NS-3 SON
 
             private: void ScheduleNextStateRead();
             void Start_Collecting();
@@ -70,6 +73,7 @@ namespace ns3 {
             static uint8_t GetnRB(uint8_t iTB, uint16_t tbSize);
             void resetObs();
             uint32_t collect;
+            float m_step;
             double collecting_window = 0.01;
             double block_Thr = 0.5;
             uint32_t m_cellCount;
@@ -83,6 +87,7 @@ namespace ns3 {
             std::vector < std::vector < uint32_t >> m_MCSPen;
             std::vector < uint32_t > m_rbUtil;
             std::vector < float > rewards;
+            std::vector < float > rewards_sum;
             double m_interval = 0.1;
             std::map < uint16_t,
             std::map < uint16_t,
@@ -90,6 +95,10 @@ namespace ns3 {
             
             std::map<uint32_t, Ptr<LteEnbNetDevice> > m_enbs;
             std::map<uint64_t, Ptr<LteUeNetDevice>> m_ues;
+
+            std::map<uint64_t, uint32_t> dlThroughput_IMSI; // NS-3 SON
+            std::map<uint64_t, uint32_t> ulThroughput_IMSI; // NS-3 SON
+            Ptr<RadioBearerStatsCalculator> RlcStats; // NS-3 SON
 
     };
 

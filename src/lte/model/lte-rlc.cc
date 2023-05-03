@@ -257,6 +257,13 @@ LteRlcSm::DoNotifyTxOpportunity (LteMacSapUser::TxOpportunityParameters txOpPara
                          << " size=" << txOpParams.bytes);
   m_txPdu (m_rnti, m_lcid, txOpParams.bytes);
 
+  // New Part
+  // txbytes = txOpParams.bytes
+
+  // std::cout<<"RNTI: "<<m_rnti<<"LCID: "<<m_lcid<<"TxByte: "<<txOpParams.bytes<<std::endl;
+
+
+
   m_macSapProvider->TransmitPdu (params);
   ReportBufferStatus ();
 }

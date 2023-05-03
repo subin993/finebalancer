@@ -320,6 +320,8 @@ public:
   typedef void (* ReportInterferenceTracedCallback)
     (uint16_t cellId, Ptr<SpectrumValue> spectrumValue);
 
+  // uint8_t TotalRbg;
+
 private:
 
   // LteEnbCphySapProvider forwarded methods

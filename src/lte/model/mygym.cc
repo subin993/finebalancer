@@ -37,8 +37,15 @@
 #include "ns3/lte-enb-rrc.h"
 
 #include <ns3/cell-individual-offset.h>
+// #include <ns3/radio-bearer-stats-calculator.h>
 
 #include <stdlib.h>
+
+#include <typeinfo>
+
+#include <numeric>
+
+#include <cmath>
 
 namespace ns3 {
 
@@ -52,10 +59,12 @@ namespace ns3 {
 
     MyGymEnv::MyGymEnv(double stepTime, uint32_t N1, uint32_t N2, uint16_t N3) {
         NS_LOG_FUNCTION(this);
+
+        //
+        m_step = 0.0;
         collect = 0;
         collecting_window = 0.05; //50ms
         block_Thr = 0.5; // Blockage threshold 0.5 Mb/s
-        m_chooseReward = 0; //0: average overall throughput, 1: PRBs utilization deviation, 2: number of blocked users
         m_interval = stepTime;
         m_cellCount = N1;
         m_userCount = N2;
@@ -64,17 +73,20 @@ namespace ns3 {
         m_dlThroughput = 0;
         m_cellFrequency.assign(m_cellCount, 0);
         rewards.assign(m_cellCount, 0);
+        rewards_sum.assign(m_cellCount, 0);
         m_dlThroughputVec.assign(m_cellCount, 0);
         m_UesNum.assign(m_cellCount, 0);
         std::vector < uint32_t > dummyVec(29, 0);
         m_MCSPen.assign(m_cellCount, dummyVec);
-        Simulator::Schedule(Seconds(1), & MyGymEnv::ScheduleNextStateRead, this);
-        Simulator::Schedule(Seconds(1 - collecting_window), & MyGymEnv::Start_Collecting, this);
+        Simulator::Schedule(Seconds(0), & MyGymEnv::ScheduleNextStateRead, this);
+        Simulator::Schedule(Seconds(m_interval - collecting_window), & MyGymEnv::Start_Collecting, this);
         UserThrouput.clear();
     }
 
     void
     MyGymEnv::ScheduleNextStateRead() {
+        
+        m_step ++;
         NS_LOG_FUNCTION(this);
         Simulator::Schedule(Seconds(m_interval), & MyGymEnv::ScheduleNextStateRead, this);
         Notify();
@@ -103,6 +115,12 @@ namespace ns3 {
     MyGymEnv::DoDispose() {
         NS_LOG_FUNCTION(this);
     }
+
+    // NS-3 SON
+    void 
+    MyGymEnv::GetRlcStats(Ptr<RadioBearerStatsCalculator> m_rlcStats) {
+        RlcStats = m_rlcStats;
+    }
     
     void 
     MyGymEnv::AddNewNode(uint16_t cellId, Ptr<LteEnbNetDevice> dev){
@@ -115,35 +133,15 @@ namespace ns3 {
     
     Ptr < OpenGymSpace >
         MyGymEnv::GetActionSpace() {
-            // Original
-            ///////////////////////////
-            // NS_LOG_FUNCTION(this);
-            // float low = -6.0;
-            // float high = 5.0; // CIO levels 
-            // std::vector < uint32_t > shape = {
-            //     m_cellCount - 1,
-            // }; //number of required relative CIOs
-            // std::string dtype = TypeNameGet < float > ();
-            // Ptr < OpenGymBoxSpace > space = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
-
-            // Custom
-            ///////////////////////////
+            
             uint32_t nodeNum = m_enbs.size();
+
             std::vector<uint32_t> shape {nodeNum,};
-            std::string dtype = TypeNameGet<int32_t> ();
+            std::string dtype = TypeNameGet<float> ();
 
-            // 범위를 -30~30으로 하였는데 이전에 범위를 늘리면 0으로 변경되버렸던 오류가 어떤 부분이였는지 기억x
-            // lte-rrc-header.cc 에서의 qOffsetRange 확인.
-            Ptr<OpenGymBoxSpace> space = CreateObject<OpenGymBoxSpace> (-24, 24, shape, dtype); //todo range change for -30 to 30
+            Ptr<OpenGymBoxSpace> space = CreateObject<OpenGymBoxSpace> (-6, 6, shape, dtype); //todo range change for -30 to 30
             
-            
-            // Ptr<OpenGymBoxSpace> box = CreateObject<OpenGymBoxSpace> (0, 0, shape, dtype); //todo range change for -30 to 30
-            // Ptr<OpenGymDictSpace> space = CreateObject<OpenGymDictSpace> ();
-
-            // space->Add("Offset", box);
-
-            NS_LOG_INFO("GetObservationSapce: "<<space);
-            ///////////////////////////
+            NS_LOG_INFO("GetActionSpace: "<<space);
 
             return space;
         }
@@ -152,76 +150,73 @@ namespace ns3 {
         MyGymEnv::GetObservationSpace() {
             NS_LOG_FUNCTION(this);
 
-            // Custom
-            /////////////////////////////
-            float low = 0.0;
-            float high = 1.0;
+            // Original (Ghada-sy)
+            // RB Util, DL Throughput, MCS ratio
+            ///////////////////////////
+            Ptr < OpenGymDictSpace > space = CreateObject < OpenGymDictSpace > ();
+
             std::vector < uint32_t > shape = { m_cellCount,};
             std::string dtype = TypeNameGet < float > ();
-            Ptr < OpenGymBoxSpace > rbUtil = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
-
-            Ptr<OpenGymDictSpace> space = CreateObject<OpenGymDictSpace> ();
-            space -> Add("rbUtil", rbUtil);
-            return space;
-
-            // Original
-            /////////////////////////////
-            // Ptr < OpenGymDictSpace > space = CreateObject < OpenGymDictSpace > ();
 
             // RB Util
-            // float low = 0.0;
-            // float high = 1.0;
-            // std::vector < uint32_t > shape = { m_cellCount,};
-            // std::string dtype = TypeNameGet < float > ();
-            // Ptr < OpenGymBoxSpace > rbUtil = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
-            // bool flag = space -> Add("rbUtil", rbUtil);
-            // if (flag) {
-            //     NS_LOG_LOGIC("rbUtil added to dictionary");
-            // } else {
-            //     NS_LOG_LOGIC("Failed to add rbUtil to dictionary");
-            // }
+            float low = 0.0;
+            float high = 1.0;
+            Ptr < OpenGymBoxSpace > rbUtil = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
+            bool flag = space -> Add("rbUtil", rbUtil);
+            if (flag) {
+                NS_LOG_LOGIC("rbUtil added to dictionary");
+            } else {
+                NS_LOG_LOGIC("Failed to add rbUtil to dictionary");
+            }
 
-            // DL throughput
-            // low = 0.0;
-            // high = 0.009422 * m_interval * 1000;
-            // Ptr < OpenGymBoxSpace > dlThroughput = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
-            // flag = space -> Add("dlThroughput", dlThroughput);
-            // if (flag) {
-            //     NS_LOG_LOGIC("rbUtil added to dictionary");
-            // } else {
-            //     NS_LOG_LOGIC("Failed to add rbUtil to dictionary");
-            // }
-
-            // number of users
-            // std::string dtype1 = TypeNameGet < uint32_t > ();
-            // low = 0.0;
-            // high = m_userCount; //
-            // Ptr < OpenGymBoxSpace > UserCount = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype1);
-            // flag = space -> Add("UserCount", UserCount);
-            // if (flag) {
-            //     NS_LOG_LOGIC("UserCount added to dictionary");
-            // } else {
-            //     NS_LOG_LOGIC("Failed to add UserCount to dictionary");
-            // }
+            // DL throughput from Ghada-sy
+            low = 0.0;
+            high = 0.009422 * m_interval * 1000;
+            Ptr < OpenGymBoxSpace > dlThroughput = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
+            flag = space -> Add("dlThroughput", dlThroughput);
+            if (flag) {
+                NS_LOG_LOGIC("rbUtil added to dictionary");
+            } else {
+                NS_LOG_LOGIC("Failed to add rbUtil to dictionary");
+            }
 
             // MCS ratio
-            // low = 0.0;
-            // high = 1.0;
-            // shape = {  29, }; // LTE has 29 different MCS
-            // Ptr < OpenGymTupleSpace > MCSPen = CreateObject < OpenGymTupleSpace > ();
-            // for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
-            //     Ptr < OpenGymBoxSpace > MCSPenRow = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
-            //     flag = MCSPen -> Add(MCSPenRow);
-            // }
-            // flag = space -> Add("MCSPen", MCSPen);
-            // if (flag) {
-            //     NS_LOG_LOGIC("MCSPen added to dictionary");
-            // } else {
-            //     NS_LOG_LOGIC("MCSPen to add rbUtil to dictionary");
-            // }
-            // return space;
-            /////////////////////////////
+            low = 0.0;
+            high = 1.0;
+            shape = {  29, }; // LTE has 29 different MCS
 
+            Ptr < OpenGymTupleSpace > MCSPen = CreateObject < OpenGymTupleSpace > ();
+            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
+                Ptr < OpenGymBoxSpace > MCSPenRow = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
+                flag = MCSPen -> Add(MCSPenRow);
+            }
+
+            flag = space -> Add("MCSPen", MCSPen);
+            if (flag) {
+                NS_LOG_LOGIC("MCSPen added to dictionary");
+            } else {
+                NS_LOG_LOGIC("MCSPen to add rbUtil to dictionary");
+            }
+            ///////////////////////////
+            
+            // Custom
+            // FarUes, Served_UEs, AvgCQI, DL Throughput(from calculator), TotalCqi
+            ///////////////////////////
+            shape = { m_cellCount,};
+            Ptr < OpenGymBoxSpace > FarUes = CreateObject < OpenGymBoxSpace > (low, high, shape, dtype);
+            Ptr < OpenGymBoxSpace > ServedUes = CreateObject < OpenGymBoxSpace > (0, 40, shape, dtype);
+            Ptr < OpenGymBoxSpace > AvgCqi = CreateObject < OpenGymBoxSpace > (0, 15, shape, dtype);
+            Ptr < OpenGymBoxSpace > Throughput = CreateObject < OpenGymBoxSpace > (0, 50, shape, dtype);
+            Ptr < OpenGymBoxSpace > TotalCqi = CreateObject < OpenGymBoxSpace > (0, 50, shape, dtype);
+
+            space -> Add("FarUes", FarUes);
+            space -> Add("ServedUes", ServedUes);
+            space -> Add("AvgCqi", AvgCqi);
+            space -> Add("Throughput", Throughput);
+            space -> Add("TotalCqi",TotalCqi);
+            ///////////////////////////
+
+            return space;
         }
 
     bool
@@ -235,64 +230,97 @@ namespace ns3 {
     Ptr < OpenGymDataContainer >
         MyGymEnv::GetObservation() {
             NS_LOG_FUNCTION(this);
-            // Custom
-            /////////////////////////////
+
             calculate_rewards();
 
             Ptr < OpenGymDictContainer > obsContainer = CreateObject < OpenGymDictContainer > ();
             std::vector < uint32_t > shape = { m_cellCount, };
 
-            Ptr < OpenGymBoxContainer < float > > box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            float normalizedRBUtil;
-            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
-                normalizedRBUtil = float(m_rbUtil.at(idx)) / m_nRBTotal ;
-                box -> AddValue(normalizedRBUtil);
-                //To see normalized RB util
-                std::cout << "eNB "<< (idx+1) << ": " <<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
-            }
-            // std::cout<<"**************************************"<<std::endl;
-            obsContainer -> Add("rbUtil", box);
+            std::vector<float> normal_RB;
+            std::vector<float> Far_UEs;
+            std::vector<float> Served_UEs;
+            std::vector<float> PRB_lin;
+            std::vector<double> location_x;
+            std::vector<double> location_y;
 
-            //report other reward functions 
-            shape = { m_cellCount, };
-            box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            box -> SetData(rewards);
-            obsContainer -> Add("rewards", box);
-
-            // 핸드오버 작동하고 있는지 확인하려고 만든 부분 (없어도 상관 X)
-            // 현재 각 eNB에 붙어있는 UE 수를 출력
             uint32_t enbIdx = 1;
             for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
                 std::cout<<"eNB "<<enbIdx<<": "<<iter->second->GetRrc ()->m_numofues<< " UEs " <<std::endl;
                 enbIdx ++;
             }
+            std::cout<<"**************************"<<std::endl;  
+
+            // Original (Ghada-sy)
+            // RB Util, DL Throughput, MCS ratio
+            ///////////////////////////
+
+            // RB Util
+            Ptr < OpenGymBoxContainer < float > > box = CreateObject < OpenGymBoxContainer < float > > (shape);
+
+            float normalizedRBUtil;
+            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
+                normalizedRBUtil = float(m_rbUtil.at(idx)) / m_nRBTotal ;
+
+                normal_RB.push_back(normalizedRBUtil);
+                
+                box -> AddValue(normalizedRBUtil);
+                
+                //To see normalized RB util
+                std::cout << "eNB "<< (idx+1) << ": " <<"Ghada-sy RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
+            }
+            obsContainer -> Add("rbUtil", box);
+            std::cout<<"**************************"<<std::endl;
+
+            // Dl Throughput
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+            box -> SetData(m_dlThroughputVec);
+            obsContainer -> Add("dlThroughput", box);
+
+            // MCS Ratio
+            std::vector < float > dummyVec(29, 0.0);
+            std::vector < std::vector < float >> normalizedMCSPen(m_cellCount, dummyVec);
+            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
+                for (uint8_t idx2 = 0; idx2 < 29; ++idx2) {
+                    if (m_cellFrequency[idx] != 0) {
+                        normalizedMCSPen[idx][idx2] = float(m_MCSPen[idx][idx2]) / m_cellFrequency[idx];
+                    } else {
+                        normalizedMCSPen[idx][idx2] = 0.0;
+                    }
+                }
+            }
+            shape = { 29, };
+            Ptr < OpenGymTupleContainer > mcsPenContainer = CreateObject < OpenGymTupleContainer > ();
+            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
+                box = CreateObject < OpenGymBoxContainer < float > > (shape);
+                box -> SetData(normalizedMCSPen.at(idx));
+                mcsPenContainer -> Add(box);
+            }
+            obsContainer -> Add("MCSPen", mcsPenContainer);
             
-            // UE-eNB distance Test
-            // 현재 step에서 각 eNB별 붙어있는 UE과의 평균 거리 출력 가능, vector로 담아서 observation으로 보내면 DQN에서도 사용 가능
-            // 사용 형태는 아직 생각 필요
-            ////////////////////////
+            ///////////////////////////
+
+            
+            // Custom
+            // FarUes, Served_UEs, AvgCQI, DL Throughput(from calculator), TotalCqi
+            ///////////////////////////
+
+            // Far UEs, Served UEs
             for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
                 uint32_t CellId = iter->first;
                 std::vector<uint64_t> Imsi_List;
-                // eNB 별로 for문을 돌리며 각 for문마다 먼저 eNB의 position 계산
                 double eNB_x = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().x;
                 double eNB_y = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().y;
                 double eNB_z = iter->second->GetNode()->GetObject<MobilityModel>()->GetPosition().z;
 
-                // eNB의 RRC 계층에 있는 붙어있는 UE들의 정보가 들어있는 m_ueMap을 UeMap이라는 parameter로 가져옴
                 std::map<uint16_t, Ptr<UeManager>> UeMap = iter->second->GetRrc ()->m_ueMap;
                 
-                // UeMap에 대해서 for문을 돌리면서 eNB에 붙어있는 UE들의 IMSI를 Imsi_List에 모음
                 for (std::map<uint16_t, Ptr<UeManager>>::iterator iter2 = UeMap.begin(); iter2 != UeMap.end(); ++iter2){
                     uint64_t Imsi = iter2->second->GetImsi();
                     Imsi_List.push_back(Imsi);
-                    // std::cout<<"Cell Id :"<<CellId<<"  "<<"Imsi : "<<Imsi<<std::endl;
                 }
 
                 double distance_sum = 0;
-
-                // Imsi_List에 대해서 for문을 돌리면서 해당 Imsi를 가지는 UE의 position을 가져와서 eNB와의 distance를 구한다
-                // 구한 distance는 distance_sum에 더한 후 이후 붙어있는 총 UE수와 나누어서 평균 distance를 측정
+                double far_distance_ues = 0;
                 for (uint64_t i=0; i<Imsi_List.size(); i++){
                     Ptr<LteUeNetDevice> UeNetDevice = m_ues[Imsi_List[i]];
                     double Ue_x = UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition().x;
@@ -301,129 +329,135 @@ namespace ns3 {
 
                     double distance = sqrt( pow(eNB_x-Ue_x, 2) + pow(eNB_y-Ue_y, 2) + pow(eNB_z-Ue_z, 2) );
                     distance_sum += distance;
-                    // std::cout<<"eNB : "<<CellId<<"  "<<"UE Poistion : "<<UeNetDevice->GetNode()->GetObject<MobilityModel>()->GetPosition()<<std::endl;
-                }
 
-                // 해당 eNB에서 붙어있는 UE들과의 평균 거리
-                double distance_avg = distance_sum / Imsi_List.size();
+                    if (distance >= 237.74){
+                        far_distance_ues += 1;
+                    }
+                }
+                
+                double distance_avg;
+                float ratio_far_ues;
+                float ratio_ues;
+                float served_ues;
+
+                if (Imsi_List.size() == 0){
+                    distance_avg = 0;
+                    ratio_far_ues = 0;
+                    ratio_ues = 0;
+                    served_ues = 0;
+                }
+                else {
+                    distance_avg = double(distance_sum) / double(Imsi_List.size());
+                    ratio_far_ues = float( far_distance_ues / Imsi_List.size() );
+                    ratio_ues = float(Imsi_List.size()) / m_userCount;
+                    served_ues = float(Imsi_List.size());
+                }
                 std::cout<<"eNB "<<CellId<<": "<<"Average Distance : "<<distance_avg<<std::endl;
+                std::cout<<"eNB "<<CellId<<": "<<"Raito_of_far_ues : "<<ratio_far_ues<<std::endl;
+                std::cout<<"eNB "<<CellId<<": "<<"Raito_of_served_ues : "<<ratio_ues<<std::endl;
+                
+                std::cout<<"---"<<std::endl;                
+                ratio_ues = round(ratio_ues * 100) / 100;
+                ratio_far_ues = round(ratio_far_ues * 100) / 100;
+                
+                Served_UEs.push_back(served_ues);
+                Far_UEs.push_back(ratio_far_ues);
             }
-            std::cout<<"**************************************"<<std::endl;
-            ////////////////////////
-            
-            // RLF Counter Test
-            // MRO Case에 따른 Counter 출력을 위한 부분
-            ////////////////////////
-            int Case1_Counter = 0;
-            int Case2_Counter = 0;
-            int Case3_Counter = 0;
+
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+            box -> SetData(Served_UEs);
+            obsContainer -> Add("ServedUes", box);
+
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+            box -> SetData(Far_UEs);
+            obsContainer -> Add("FarUes", box);
+
+            // DL Throughput
+            dlThroughput_IMSI = RlcStats->GetdlThroughput_IMSI();
+      
+            std::vector <float> throughput(m_cellCount);
             for (std::map<uint64_t, Ptr<LteUeNetDevice>>::iterator iter = m_ues.begin(); iter != m_ues.end(); ++iter)
             {
-                int Counter1 = iter->second->GetPhy()->GetTooLateHO_CNT();
-                int Counter2 = iter->second->GetPhy()->GetTooEarlyHO_CNT();
-                int Counter3 = iter->second->GetPhy()->GetWrongCellHO_CNT();
-                Case1_Counter += Counter1;
-                Case2_Counter += Counter2;
-                Case3_Counter += Counter3;
+                uint16_t CellId = iter->second->GetRrc()->GetCellId();
+                uint32_t dlThroughput = dlThroughput_IMSI[iter->first];
+                throughput[CellId-1] = throughput[CellId-1] + ( double(dlThroughput) * 8.0 / 1000000.0);
+
+
             }
-            std::cout<<"MRO Case1 Counter: "<<Case1_Counter<<std::endl;
-            std::cout<<"MRO Case2 Counter: "<<Case2_Counter<<std::endl;
-            std::cout<<"MRO Case3 Counter: "<<Case3_Counter<<std::endl;
-            std::cout<<"**************************************"<<std::endl;
-            ////////////////////////
+            float throughput_total = 0.0;
+            throughput_total = std::accumulate(throughput.begin (), throughput.end (), 0.0);
+            
+            std::cout <<"Custom Total Throughput : "<< throughput_total << std::endl;
 
-            // RLF Test
-            // MRO 기능을 위한 부분 (현재는 사용 안하고 있어서 주석처리)
-            ////////////////////////
-            // std::map<uint16_t,int> RlfCounter;
-            // for (std::map<uint64_t, Ptr<LteUeNetDevice>>::iterator iter = m_ues.begin(); iter != m_ues.end(); ++iter)
-            // {
-            //     // std::cout<<"Test1 : "<<RlfCounter.size()<<std::endl;
-            //     std::map<uint16_t,int> RlfCounterperUe = iter->second->GetPhy()->GetRlfCounter();
-            //     iter->second->GetPhy()->ClearRlfCounter();
-            // for (auto iter2 =RlfCounterperUe.begin();iter2!=RlfCounterperUe.end();iter2++)
-            // {
-            //     std::cout<<"Test2"<<std::endl;
-            //     if(RlfCounter.count(iter2->first)){
-            //         RlfCounter[iter2->first]+=iter2->second;
-            //     }
-            //     else{
-            //         RlfCounter.insert({iter2->first,iter2->second});
-            //     }
-            //     std::cout<<"Size : "<<RlfCounter.size()<<std::endl;
-            // }
-            // }
-            // for (auto iter3 = RlfCounter.begin(); iter3 != RlfCounter.end(); iter3++)
-            // {
-            //     std::cout<<"CellId : "<<iter3->first<<"   "<<"Counter : "<<iter3->second<<std::endl;
-            // }
-            ////////////////////////
+            int i = 1;
+            for(auto loop : throughput){
+                std::cout<<"Cell "<<i<<"  Custom Throughtput : "<<loop<<std::endl;
+                i += 1;
+            }
+            std::cout<<"**************************"<<std::endl;
 
-            // NS_LOG_LOGIC("MyGetObservation: " << obsContainer);
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+            box -> SetData(throughput);
+            obsContainer -> Add("Throughput", box);
 
+            // Average CQI
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+
+            std::vector <float> TotalCqi(m_cellCount);
+            float CqiSum = 0;
+
+            for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
+                uint32_t CellId = iter->first;
+                std::vector<uint64_t> Imsi_List;
+
+                std::map<uint16_t, Ptr<UeManager>> UeMap = iter->second->GetRrc ()->m_ueMap;
+
+                for (std::map<uint16_t, Ptr<UeManager>>::iterator iter2 = UeMap.begin(); iter2 != UeMap.end(); ++iter2){
+                    uint64_t Imsi = iter2->second->GetImsi();
+                    Imsi_List.push_back(Imsi);
+                }
+
+                float AvgCqi = 0;
+                for (uint64_t i=0; i<Imsi_List.size(); i++)
+                {
+                    float UeCqi = float(m_ues[Imsi_List[i]]->GetPhy()->AvgCqi);
+                    AvgCqi += UeCqi;
+                }
+
+                
+                if(Imsi_List.size() == 0){
+                    AvgCqi = 0;
+                    
+                    CqiSum = 0;
+                }
+                else{
+                    std::cout<<"Cell Id: "<<CellId<<"  CQI SUM: "<<AvgCqi<<std::endl;
+                    CqiSum += AvgCqi;
+                    
+                    AvgCqi = AvgCqi / Imsi_List.size(); 
+                }
+
+                AvgCqi = round(AvgCqi * 100) / 100;
+
+                box -> AddValue(AvgCqi);
+                std::cout<<"Cell ID: "<<CellId<<"  Average CQI: "<<AvgCqi<<std::endl;
+            }
+            obsContainer -> Add("AvgCqi", box);
+
+            box = CreateObject < OpenGymBoxContainer < float > > (shape);
+            CqiSum = CqiSum / m_ues.size();
+            for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
+                TotalCqi[idx] = CqiSum;
+            }
+            box -> SetData(TotalCqi);
+            obsContainer -> Add("TotalCqi",box);
+            
+            ///////////////////////////
+
+            NS_LOG_LOGIC("MyGetObservation: " << obsContainer);
+            std::cout<<"**************************"<<std::endl;
+        
             return obsContainer;
-
-            // Original
-            /////////////////////////////
-            // calculate_rewards();
-
-            // Ptr < OpenGymDictContainer > obsContainer = CreateObject < OpenGymDictContainer > ();
-            // std::vector < uint32_t > shape = { m_cellCount, };
-
-            // // nRB Utilization
-            // std::vector < float > normalizedRBUtil;
-            // for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
-            //     normalizedRBUtil.push_back(float(m_rbUtil.at(idx)) / m_nRBTotal);
-            //     //To see normalized RB util
-            //     std::cout<<"Normalized RB Utilization : "<<(float(m_rbUtil.at(idx))/m_nRBTotal)<<std::endl;
-            // }
-            // Ptr < OpenGymBoxContainer < float > > box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            // box -> SetData(normalizedRBUtil);
-            // obsContainer -> Add("rbUtil", box);
-
-            // // phyDlThroughput
-            // box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            // box -> SetData(m_dlThroughputVec);
-            // obsContainer -> Add("dlThroughput", box);
-
-            // // #users
-            // Ptr < OpenGymBoxContainer < uint32_t > > box1 = CreateObject < OpenGymBoxContainer < uint32_t > > (shape);
-            // box1 = CreateObject < OpenGymBoxContainer < uint32_t > > (shape);
-            // box1 -> SetData(m_UesNum);
-            // obsContainer -> Add("UserCount", box1);
-
-            // // MCS Penetration
-            // std::vector < float > dummyVec(29, 0.0);
-            // std::vector < std::vector < float >> normalizedMCSPen(m_cellCount, dummyVec);
-            // for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
-            //     for (uint8_t idx2 = 0; idx2 < 29; ++idx2) {
-            //         if (m_cellFrequency[idx] != 0) {
-            //             normalizedMCSPen[idx][idx2] = float(m_MCSPen[idx][idx2]) / m_cellFrequency[idx];
-            //         } else {
-            //             normalizedMCSPen[idx][idx2] = 0.0;
-            //         }
-            //     }
-            // }
-
-            // shape = { 29, };
-            // Ptr < OpenGymTupleContainer > mcsPenContainer = CreateObject < OpenGymTupleContainer > ();
-            // for (uint8_t idx = 0; idx < m_cellCount; ++idx) {
-            //     box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            //     box -> SetData(normalizedMCSPen.at(idx));
-            //     mcsPenContainer -> Add(box);
-            // }
-
-            // obsContainer -> Add("MCSPen", mcsPenContainer);
-
-            // //report other reward functions 
-            // shape = { 3, };
-            // box = CreateObject < OpenGymBoxContainer < float > > (shape);
-            // box -> SetData(rewards);
-            // obsContainer -> Add("rewards", box);
-
-            // NS_LOG_LOGIC("MyGetObservation: " << obsContainer);
-
-            // return obsContainer;
         }
 
     void
@@ -431,6 +465,7 @@ namespace ns3 {
         NS_LOG_FUNCTION(this);
         m_rbUtil.assign(m_cellCount, 0);
         rewards.assign(m_cellCount, 0);
+        rewards_sum.assign(m_cellCount, 0);
         m_cellFrequency.assign(m_cellCount, 0);
         m_dlThroughputVec.assign(m_cellCount, 0);
         m_dlThroughput = 0;
@@ -450,7 +485,8 @@ namespace ns3 {
         std::map < uint16_t, float > ::iterator ptr;
         int Blocked_Users_num = 0;
         double min_thro = 100;
-	m_UesNum.assign(m_cellCount, 0);
+	    m_UesNum.assign(m_cellCount, 0);
+        float sum_reward=0 ;
 
         for (itr = UserThrouput.begin(); itr != UserThrouput.end(); itr++) {
 
@@ -458,8 +494,6 @@ namespace ns3 {
             std::map < uint16_t, float > tempmap = itr -> second;
             m_UesNum.at(itr -> first - 1) = tempmap.size();
             
-            // std::cout<<"UE Num : "<<m_UesNum.at(itr->first-1)<<std::endl;
-
             NS_LOG_LOGIC("Cell: " << itr -> first << " total throuput: " << m_dlThroughputVec.at(itr -> first - 1));
             NS_LOG_LOGIC("#users : " << tempmap.size());
             for (ptr = itr -> second.begin(); ptr != itr -> second.end(); ptr++) {
@@ -471,43 +505,14 @@ namespace ns3 {
                 all = all + ptr -> second;
             }
 
-            // New Part
-            // Parameter to use as reward
-            float normalized_throughput = 0;
-            normalized_throughput = (all/m_UesNum.at(itr->first-1))*100;
             NS_LOG_LOGIC("using sum Cell: " << itr -> first << " total throuput: " << all);
-            rewards.at(itr -> first - 1) = normalized_throughput;
-            // std::cout<<"Cell ID : "<<itr->first<<"  "<<"Total Throughput : "<<normalized_throughput<<std::endl;
-
+            rewards.at(itr -> first - 1) = all;
+            sum_reward += all;
         }
 
-        // NS_LOG_LOGIC("Number of users in the first 3 cells: " << m_UesNum.at(0) << " " << m_UesNum.at(1) << " " << m_UesNum.at(2) << " ");
-        // NS_LOG_LOGIC("Number of blocked users: " << Blocked_Users_num);
-
-        // float reward = 0;
-        // // reward1 => sum of throughput
-        // rewards.at(0) = m_dlThroughput;
-        // NS_LOG_LOGIC("GetReward: rewards.at(0): " << rewards.at(0));
-
-        // reward2 => Utilization deviation
-        // Get mean Utilization
-        // uint32_t rbSUM = 0;
-        // for (uint32_t idx = 0; idx < m_cellCount; idx++) {
-        //     rbSUM = rbSUM + m_rbUtil.at(idx);
-        //     NS_LOG_LOGIC("m_rbUtil.at(idx): " << m_rbUtil.at(idx));
-        //     NS_LOG_LOGIC("rbSUM : " << rbSUM);
-        // }
-
-        // for (uint32_t idx = 0; idx < m_cellCount; idx++) {
-        //     reward = reward - float(1.0 / 3.0) * abs(float(m_rbUtil.at(idx)) / m_nRBTotal - float(rbSUM) / (m_cellCount * m_nRBTotal));
-        // }
-        // rewards.at(1) = reward;
-        // NS_LOG_LOGIC("GetReward: rewards.at(1): " << rewards.at(0));
-
-    //     // reward3=> percentage of non-blocked users
-    //     reward = 1 - ((float) Blocked_Users_num / m_userCount);
-    //     rewards.at(2) = reward;
-    //     NS_LOG_LOGIC("GetReward: rewards.at(2): " << rewards.at(2));
+        for (itr = UserThrouput.begin(); itr != UserThrouput.end(); itr++) {
+            rewards_sum.at(itr->first - 1) = sum_reward + rewards.at(itr->first -1);
+        }
     }
 
     float
@@ -515,18 +520,8 @@ namespace ns3 {
         NS_LOG_FUNCTION(this);
 
         float reward = 0;
-        // reward = rewards.at(0);
-        // if (m_chooseReward == 0) {
-        //     reward = rewards.at(0);
-        // } else if (m_chooseReward == 1) {
-        //     reward = rewards.at(1);
-        // } else if (m_chooseReward == 2) {
-        //     reward = rewards.at(2);
-        // } else {
-        //     NS_LOG_ERROR("m_chooseReward variable should be between 0-2");
-        // }
+    
         resetObs();
-        // NS_LOG_LOGIC("MyGetReward: " << reward);
         return reward;
     }
 
@@ -539,56 +534,50 @@ namespace ns3 {
     bool
     MyGymEnv::ExecuteActions(Ptr < OpenGymDataContainer > action) {
         
-        // Custom
-        /////////////////////////////
-        // Ptr<OpenGymDictContainer> dict = DynamicCast<OpenGymDictContainer>(action);
-        Ptr<OpenGymBoxContainer<int32_t> > box = DynamicCast<OpenGymBoxContainer<int32_t>>(action);
+        Ptr<OpenGymBoxContainer<float> > box = DynamicCast<OpenGymBoxContainer<float>>(action);
 
         uint32_t nodeNum = m_enbs.size();
 
-        // Action이 c++ 쪽에서 잘 받아졌는지 확인하려고 작성한 부분
-        // for(uint32_t i = 0; i<nodeNum; i++){
-        //     std::cout<< "eNB " << i << " action : "<< box->GetValue(i)<<std::endl;
-        // }
-
         std::list<LteRrcSap::CellsToAddMod> celllist_temp;
-        
-        //
-        // std::cout<<"ExecuteActions: ";
+        std::vector <double> Power_list;
 
         for(uint32_t i = 0; i < nodeNum; i++){
             LteRrcSap::CellsToAddMod cell_temp;
             cell_temp.cellIndex = i+1;
             cell_temp.physCellId = 0;
-            cell_temp.cellIndividualOffset = box->GetValue(i);
-            celllist_temp.push_back(cell_temp);
-            
-            // std::cout<<box->GetValue(i);
+            cell_temp.cellIndividualOffset = (int8_t)box->GetValue(i);
 
+            std::cout<<"CIO: "<<box->GetValue(i)<<std::endl;
+            
+            celllist_temp.push_back(cell_temp);
+        }
+        for(uint32_t i = 0; i < nodeNum; i++){
+            
+            // Power Control
+            Power_list.push_back(32+((double)box->GetValue(i+5)));
+        
+            // Non-Power Control
+            // Power_list.push_back(32);
         }
         for (std::map<uint32_t, Ptr<LteEnbNetDevice>>::iterator iter = m_enbs.begin(); iter != m_enbs.end(); ++iter){
             iter->second->m_rrc->setCellstoAddModList(celllist_temp);
+
+            uint32_t idx = iter->second->GetCellId();
+            idx = idx-1;
+            std::cout << "CellId :   " << iter->second->GetCellId() << std::endl;
+            ns3::Ptr<ns3::LteEnbPhy> enbPhy = iter->second->GetPhy();
+            enbPhy->SetTxPower(Power_list.at(idx)); // Apply TXP action
+            NS_LOG_UNCOND (" tx power: " << enbPhy->GetTxPower());
+
             std::map<uint16_t, Ptr<UeManager>> m_UeMap = iter->second->GetRrc()->m_ueMap;
             for(auto iter2 = m_UeMap.begin(); iter2 != m_UeMap.end(); iter2++)
             {
-                iter2->second->ScheduleRrcConnectionRecursive();
+                iter2->second->ScheduleRrcConnectionRecursive(); // Apply CIO action
             }
         }
+        std::cout<<"**********************************************"<<std::endl;
+
         return true;
-
-        // Original
-        /////////////////////////////
-        // NS_LOG_FUNCTION(this);
-        // NS_LOG_LOGIC("MyExecuteActions: " << action << "    at time= " << Simulator::Now().GetSeconds() << " sec");
-        // Ptr < OpenGymBoxContainer < float > > box = DynamicCast < OpenGymBoxContainer < float > > (action);
-        // std::vector < float > actionVector = box -> GetData();
-        // std::vector < double > actionVectord;
-        // for (std::vector < float > ::iterator it = actionVector.begin(); it != actionVector.end(); ++it) {
-        //     actionVectord.push_back(double( * it));
-        // }
-        // CellIndividualOffset::setOffsetList(actionVectord);
-
-        // return true;
     }
 
     uint8_t
@@ -666,11 +655,11 @@ namespace ns3 {
             gymEnv -> m_rbUtil.at(idx) = gymEnv -> m_rbUtil.at(idx) + nRBs;
 
             // Get MCSPen
-            // gymEnv -> m_MCSPen.at(idx).at(params.m_mcs) = gymEnv -> m_MCSPen.at(idx).at(params.m_mcs) + 1;
-            // NS_LOG_LOGIC("Frequency at cell " << idx << " is " << gymEnv -> m_cellFrequency.at(idx));
-            // NS_LOG_LOGIC("DLThroughput at cell " << idx << " is " << gymEnv -> m_dlThroughputVec.at(idx));
-            // NS_LOG_LOGIC("NRB at cell " << idx << " is " << gymEnv -> m_rbUtil.at(idx));
-            // NS_LOG_LOGIC("MCS frequency at cell " << idx << " of MCS " << uint32_t(params.m_mcs) << " is " << gymEnv -> m_MCSPen[idx][params.m_mcs]);
+            gymEnv -> m_MCSPen.at(idx).at(params.m_mcs) = gymEnv -> m_MCSPen.at(idx).at(params.m_mcs) + 1;
+            NS_LOG_LOGIC("Frequency at cell " << idx << " is " << gymEnv -> m_cellFrequency.at(idx));
+            NS_LOG_LOGIC("DLThroughput at cell " << idx << " is " << gymEnv -> m_dlThroughputVec.at(idx));
+            NS_LOG_LOGIC("NRB at cell " << idx << " is " << gymEnv -> m_rbUtil.at(idx));
+            NS_LOG_LOGIC("MCS frequency at cell " << idx << " of MCS " << uint32_t(params.m_mcs) << " is " << gymEnv -> m_MCSPen[idx][params.m_mcs]);
         }
     }
 

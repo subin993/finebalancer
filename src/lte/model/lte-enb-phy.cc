@@ -910,6 +910,7 @@ LteEnbPhy::DoSetBandwidth (uint16_t ulBandwidth, uint16_t dlBandwidth)
           break;
         }
     }
+  
 }
 
 void

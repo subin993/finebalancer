@@ -204,6 +204,13 @@ public:
   void
   DlRxPdu (uint16_t cellId, uint64_t imsi, uint16_t rnti, uint8_t lcid, uint32_t packetSize, uint64_t delay);
 
+  // NS-3 SON
+  std::map<uint64_t, uint32_t>
+  GetdlThroughput_IMSI();
+
+  std::map<uint64_t, uint32_t>
+  GetulThroughput_IMSI();
+  
   /**
    * Gets the number of transmitted uplink packets.
    * @param imsi IMSI of the UE
@@ -348,6 +355,8 @@ public:
   std::vector<double>
   GetDlPduSizeStats (uint64_t imsi, uint8_t lcid);
 
+  std::map<uint64_t, uint32_t> dlThroughput_IMSI; // NS-3 SON
+  std::map<uint64_t, uint32_t> ulThroughput_IMSI; // NS-3 SON
 private:
   /**
    * Called after each epoch to write collected

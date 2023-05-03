@@ -550,7 +550,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n, Ptr<MyGymEnv> son_server, int to
 
   // create component carrier map for this eNb device
   std::map<uint8_t,Ptr<ComponentCarrierBaseStation> > ccMap;
-  std::map<uint8_t, Ptr<FfMacScheduler> > ffmac_temp; //NS-3 SON: this will be attribute for enb net device ff_mac ...` SON 
   for (std::map<uint8_t, ComponentCarrier >::iterator it = m_componentCarrierPhyParams.begin ();
        it != m_componentCarrierPhyParams.end ();
        ++it)
@@ -565,7 +564,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n, Ptr<MyGymEnv> son_server, int to
       NS_ABORT_MSG_IF (m_cellIdCounter == 65535, "max num cells exceeded");
       cc->SetCellId (m_cellIdCounter++);
       ccMap [it->first] =  cc;
-      //ffmac_temp[it->first] = ff;
     }
   // CC map is not needed anymore
   m_componentCarrierPhyParams.clear ();
@@ -618,7 +616,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n, Ptr<MyGymEnv> son_server, int to
       DynamicCast<ComponentCarrierEnb> (it->second)->SetFfMacScheduler (sched);
       DynamicCast<ComponentCarrierEnb> (it->second)->SetFfrAlgorithm (ffrAlgorithm);
       DynamicCast<ComponentCarrierEnb> (it->second)->SetPhy (phy);
-      ffmac_temp[it->first] = sched;
     }
 
   Ptr<LteEnbRrc> rrc = CreateObject<LteEnbRrc> ();
@@ -720,7 +717,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n, Ptr<MyGymEnv> son_server, int to
 
 
   dev->SetNode (n);
-  dev->SetMacScheduler(ffmac_temp);
   dev->SetAttribute ("CellId", UintegerValue (cellId));
   dev->SetAttribute ("LteEnbComponentCarrierManager", PointerValue (ccmEnbManager));
   dev->SetCcMap (ccMap);
@@ -813,7 +809,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n,  int totalN)
 
   // create component carrier map for this eNb device
   std::map<uint8_t,Ptr<ComponentCarrierBaseStation> > ccMap;
-  std::map<uint8_t, Ptr<FfMacScheduler> > ffmac_temp; //NS-3 SON: this will be attribute for enb net device ff_mac ...` SON 
   for (std::map<uint8_t, ComponentCarrier >::iterator it = m_componentCarrierPhyParams.begin ();
        it != m_componentCarrierPhyParams.end ();
        ++it)
@@ -828,7 +823,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n,  int totalN)
       NS_ABORT_MSG_IF (m_cellIdCounter == 65535, "max num cells exceeded");
       cc->SetCellId (m_cellIdCounter++);
       ccMap [it->first] =  cc;
-      //ffmac_temp[it->first] = ff;
     }
   // CC map is not needed anymore
   m_componentCarrierPhyParams.clear ();
@@ -881,7 +875,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n,  int totalN)
       DynamicCast<ComponentCarrierEnb> (it->second)->SetFfMacScheduler (sched);
       DynamicCast<ComponentCarrierEnb> (it->second)->SetFfrAlgorithm (ffrAlgorithm);
       DynamicCast<ComponentCarrierEnb> (it->second)->SetPhy (phy);
-      ffmac_temp[it->first] = sched;
     }
 
   Ptr<LteEnbRrc> rrc = CreateObject<LteEnbRrc> ();
@@ -983,7 +976,6 @@ LteHelper::InstallSingleEnbDevice (Ptr<Node> n,  int totalN)
 
 
   dev->SetNode (n);
-  dev->SetMacScheduler(ffmac_temp);
   dev->SetAttribute ("CellId", UintegerValue (cellId));
   dev->SetAttribute ("LteEnbComponentCarrierManager", PointerValue (ccmEnbManager));
   dev->SetCcMap (ccMap);
@@ -2083,6 +2075,21 @@ Ptr<RadioBearerStatsCalculator>
 LteHelper::GetRlcStats (void)
 {
   return m_rlcStats;
+}
+
+// NS-3 SON
+Ptr<RadioBearerStatsCalculator>
+LteHelper::GetRlcStats (Ptr<MyGymEnv> son_server)
+{
+  PutRlcStats(m_rlcStats, son_server);
+  return m_rlcStats;
+}
+
+// NS-3 SON
+void
+LteHelper::PutRlcStats (Ptr<RadioBearerStatsCalculator> m_rlcStats, Ptr<MyGymEnv> son_server)
+{
+  son_server->GetRlcStats(m_rlcStats);
 }
 
 void

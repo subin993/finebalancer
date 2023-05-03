@@ -251,19 +251,6 @@ LteEnbNetDevice::HasCellId (uint16_t cellId) const
   return false;
 }
 
-void 
-LteEnbNetDevice::SetMacScheduler (std::map <uint8_t, Ptr<FfMacScheduler> > ff_mac){
-  m_ffmacscheduler_ns3_son = ff_mac;
-  std::map <uint8_t, Ptr<FfMacScheduler> > iter;
-  // for (std::map<uint8_t, Ptr<FfMacScheduler> >::iterator iter = m_ffmacscheduler_ns3_son.begin();
-  // iter != m_ffmacscheduler_ns3_son.end(); ++iter){
-  //   std::cout << "[" << int(iter->first) << " " << iter->second << "] ";
-  // }
-  // std::cout<<std::endl;
-  
-  std::cout<<"PrintPrintPRBUSAGE"<<std::endl;
-}
-
 
 uint16_t
 LteEnbNetDevice::GetUlBandwidth () const
