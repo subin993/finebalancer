@@ -1,13 +1,20 @@
 
-FineBalancer README
+NS3-SON README
 ================================
 
 ## OS and software preparation:
 
 We base our experiment environment on Ubuntu 20.04 LTS and highly recommend that you do the same. This streamlines the setup process and avoids unexpected issues cause by incompatible software versions etc. Please make sure that you have Python installed. Also make sure that you have root or sudo permission.
 
-The Network Simulator, Version 3
-================================
+This branch contains the entire ns-3 network simulator (ns-3.33) with ns3-gym (opengym) module.
+
+## Install NS3-SON
+
+The first part of the preparation is to install all dependencies required by ns-3.
+
+the NS3-SON on your machine. Install all dependencies 
+
+
 
 ## Table of Contents:
 
