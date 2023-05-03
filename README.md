@@ -93,6 +93,7 @@ python3 <name-of-algorithm>.py
 Contact
 ================================
 Subin Han, Korea University, subin993@korea.ac.kr
+
 Eunsok Lee, Korea University, tinedge@korea.ac.kr
 
 
