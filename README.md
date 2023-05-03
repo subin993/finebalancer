@@ -81,7 +81,7 @@ If you want to run only one episode, run the command:
 ./waf --run scratch/NS3_Env.cc
 ```
 
-## Running agent of various algorithms
+## Running agent of various RL algorithms
 
 In the directory scratch, there are various RL algorithms of mobility load balancing (e.g., DDQN, MADDPG, TD3, FineBalancer, etc.) for small and large scale scenarios.
 
