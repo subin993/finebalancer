@@ -83,6 +83,8 @@ If you want to run only one episode, run the command:
 
 ## Running agent of various algorithms
 
+In the directory scratch, there are various RL algorithms of mobility load balancing (e.g., DDQN, MADDPG, TD3, FineBalancer, etc.) for small and large scale scenarios.
+
 Open a new terminal and run the command:
 
 ```shell
