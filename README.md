@@ -42,7 +42,7 @@ Following guideline of installation in https://pytorch.org
 5. Building ns-3
 
 ```shell
-./waf configure --enable-examples
+./waf configure
 ./waf build
 ```
 
