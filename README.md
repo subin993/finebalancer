@@ -103,6 +103,7 @@ How to reference NS3-SON?
 ================================
 Please use the following bibtex:
 
+```shell
 @INPROCEEDINGS{10464981,
   author={Han, Subin and Lee, Eunsok and Pack, Sangheon},
   booktitle={2023 IEEE Globecom Workshops (GC Wkshps)}, 
@@ -113,3 +114,4 @@ Please use the following bibtex:
   pages={578-583},
   keywords={Simulation;Markov decision processes;Conferences;Reinforcement learning;Self-organizing networks;Load management;Throughput;Self-organizing networks;Load balancing;Multi-agent reinforcement learning;Open-source simulator},
   doi={10.1109/GCWkshps58843.2023.10464981}}
+```
